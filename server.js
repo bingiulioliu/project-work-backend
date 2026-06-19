@@ -1,4 +1,5 @@
 import express from 'express';
+import productRouter from './src/routers/productsRouter.js';
 
 const app = express();
 
@@ -8,7 +9,7 @@ const host = process.env.HOST || "localhost";
 app.use(express.json());
 app.use(express.static('public'));
 
-
+app.use('/products', productRouter);
 
 app.listen(port, (error) => {
     if (error) {
