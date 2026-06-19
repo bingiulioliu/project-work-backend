@@ -46,7 +46,7 @@ async function show(request, response) {
             });
         }
 
-        // se il prodotto esiste
+        // se la categoria esiste
         const category = rows[0];
 
         // query per i prodotti associati
