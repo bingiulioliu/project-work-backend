@@ -2,6 +2,7 @@ import express from 'express';
 import productRouter from './src/routers/productsRouter.js';
 import categoriesRouter from './src/routers/categoriesRouter.js';
 import cors from 'cors';
+import ordersRouter from './src/routers/ordersRouter.js';
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.static('public'));
 
 app.use('/products', productRouter);
 app.use('/categories', categoriesRouter);
+app.use('/orders', ordersRouter);
 
 app.listen(port, (error) => {
     if (error) {
