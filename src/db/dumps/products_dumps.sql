@@ -1,3 +1,7 @@
+-- ============================================================
+-- PRODUCTS
+-- ============================================================
+
 INSERT INTO `products` (`name`, `slug`, `description`, `price`, `rarity`, `image`, `created_at`, `updated_at`) VALUES
 ('Spada dei Mille Inverni', 'spada-dei-mille-inverni', 'Forgiata nel ghiaccio eterno del Nord. Taglia, gela e fa anche un freddo cane (letteralmente).', 249.90, 'legendary', 'spada-mille-inverni.jpg', NOW(), NOW()),
 ('Mantello del Viandante Silenzioso', 'mantello-viandante-silenzioso', 'Ti rende invisibile ai nemici ma non a tua madre che ti chiede sempre dove stai andando.', 79.90, 'rare', 'mantello-viandante.jpg', NOW(), NOW()),
