@@ -115,7 +115,7 @@ async function create(request, response) {
 
     const { name, description, price, rarity } = request.body;
 
-    if (!name || !price || !rarity) {
+    if (!name || !price || !rarity || !description) {
         return response.status(400).json({
             success: false,
             message: 'Inserire nome, prezzo e rarità'
@@ -176,7 +176,7 @@ async function create(request, response) {
     }
 };
 
-async function modify (request, response) {
+async function modify(request, response) {
 
     const { slug } = request.params;
     const { name, description, price, rarity } = request.body;
@@ -261,22 +261,25 @@ async function modify (request, response) {
 
         response.json({
             success: true,
-            message: `${name} aggiornato con successo`
-          
-                  if (error.code === 'ER_DUP_ENTRY') {
+            message: 'Prodotto aggiornato con successo'
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        if (error.code === 'ER_DUP_ENTRY') {
             return response.status(409).json({
                 success: false,
-                message: 'Esiste già un prodotto con questo nome'
+                message: 'Esiste già un prodotto con questo nome o slug'
             });
         }
 
         response.status(500).json({
             success: false,
-            message: `Errore durante l'aggiornamento del prodotto`
+            message: "Errore durante l'aggiornamento del prodotto"
         });
     }
 };
-
 
 async function destroy(request, response) {
 
@@ -305,7 +308,6 @@ async function destroy(request, response) {
     } catch (error) {
         console.error(error);
 
-        // se il prodotto è già presente in almeno un ordine
         if (error.code === 'ER_ROW_IS_REFERENCED_2') {
             return response.status(409).json({
                 success: false,
@@ -317,8 +319,9 @@ async function destroy(request, response) {
             success: false,
             message: "Errore durante l'eliminazione del prodotto"
         });
-    };
-  
+    }
+};
+
 async function cheapest(request, response) {
     const query = `
         SELECT name, slug, price, rarity, image
@@ -338,15 +341,11 @@ async function cheapest(request, response) {
     } catch (error) {
         console.error(error);
         response.status(500).json({
-          error: "Internal Server Error",
-          message: "Errore durante il recupero dei prodotti più economici",
-          });
+            error: "Internal Server Error",
+            message: "Errore durante il recupero dei prodotti più economici",
+        });
     }
-}
 };
-      
 
 
 export { index, show, rarest, cheapest, create, modify, destroy };
-
-
