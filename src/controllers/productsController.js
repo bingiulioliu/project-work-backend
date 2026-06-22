@@ -110,5 +110,31 @@ async function rarest(request, response) {
     }
 }
 
+async function cheapest(request, response) {
+    const query = `
+        SELECT name, slug, price, rarity, image
+        FROM products
+        ORDER BY price ASC
+        LIMIT 5
+    `;
 
-export { index, show, rarest };
+    try {
+        const [rows] = await connection.query(query);
+
+        response.json({
+            error: null,
+            results: rows
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        response.status(500).json({
+            error: "Internal Server Error",
+            message: "Errore durante il recupero dei prodotti più economici",
+        });
+    }
+}
+
+
+export { index, show, rarest, cheapest };
