@@ -185,10 +185,44 @@ async function modify(request, response) {
 };
 
 async function destroy(request, response) {
+
+    const { slug } = request.params;
+
+    const query = `
+        delete from products
+        where slug = ?
+    `;
+
     try {
+        const [result] = await connection.execute(query, [slug]);
+
+        if (result.affectedRows === 0) {
+            return response.status(404).json({
+                success: false,
+                message: 'Prodotto non trovato'
+            });
+        }
+
+        response.json({
+            success: true,
+            message: `Prodotto con slug ${slug} eliminato con successo`
+        });
 
     } catch (error) {
+        console.error(error);
 
+        // se il prodotto è già presente in almeno un ordine
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            return response.status(409).json({
+                success: false,
+                message: 'Non puoi eliminare questo prodotto: è presente in almeno un ordine esistente'
+            });
+        }
+
+        response.status(500).json({
+            success: false,
+            message: "Errore durante l'eliminazione del prodotto"
+        });
     }
 };
 
