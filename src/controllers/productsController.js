@@ -262,12 +262,8 @@ async function modify (request, response) {
         response.json({
             success: true,
             message: `${name} aggiornato con successo`
-        });
-
-    } catch (error) {
-        console.error(error);
-
-        if (error.code === 'ER_DUP_ENTRY') {
+          
+                  if (error.code === 'ER_DUP_ENTRY') {
             return response.status(409).json({
                 success: false,
                 message: 'Esiste già un prodotto con questo nome'
@@ -321,7 +317,36 @@ async function destroy(request, response) {
             success: false,
             message: "Errore durante l'eliminazione del prodotto"
         });
-    }
-};
+    };
+  
+async function cheapest(request, response) {
+    const query = `
+        SELECT name, slug, price, rarity, image
+        FROM products
+        ORDER BY price ASC
+        LIMIT 5
+    `;
 
-export { index, show, rarest, create, modify, destroy };
+    try {
+        const [rows] = await connection.query(query);
+
+        response.json({
+            error: null,
+            results: rows
+        });
+
+    } catch (error) {
+        console.error(error);
+        response.status(500).json({
+          error: "Internal Server Error",
+          message: "Errore durante il recupero dei prodotti più economici",
+          });
+    }
+}
+};
+      
+
+
+export { index, show, rarest, cheapest, create, modify, destroy };
+
+
