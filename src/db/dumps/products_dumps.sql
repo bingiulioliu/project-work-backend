@@ -23,3 +23,12 @@ INSERT INTO `products` (`name`, `slug`, `description`, `price`, `rarity`, `image
 ('Specchio della Verità Scomoda', 'specchio-verita-scomoda', 'Ti dice sempre la verità, anche quando chiedi solo come stai oggi.', 64.90, 'rare', 'specchio-verita-scomoda.jpg', NOW(), NOW()),
 ('Corno da Guerra del Risveglio Improvviso', 'corno-guerra-risveglio-improvviso', 'Sveglia un intero accampamento in un istante. Anche quello nemico, a tre valli di distanza.', 44.90, 'rare', 'corno-risveglio-improvviso.jpg', NOW(), NOW()),
 ('Corona del Re per un Giorno', 'corona-re-per-un-giorno', 'Ti rende sovrano assoluto per ventiquattro ore esatte. Le tasse arretrate restano comunque tue.', 349.00, 'legendary', 'corona-re-un-giorno.jpg', NOW(), NOW());
+
+
+SET SQL_SAFE_UPDATES = 0;
+
+UPDATE products
+SET image = REPLACE(image, '.jpg', '.png')
+WHERE image LIKE '%.jpg';
+
+SET SQL_SAFE_UPDATES = 1;
