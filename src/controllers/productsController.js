@@ -1,6 +1,6 @@
 import connection from "../db/connections/connection.js";
 
-async function index (request, response) {
+async function index(request, response) {
 
     const query = `
     select name, slug, price, rarity, image
@@ -16,7 +16,7 @@ async function index (request, response) {
             results: rows
         })
 
-    } catch (error){
+    } catch (error) {
         console.error(error);
 
         response.status(500).json({
@@ -60,10 +60,10 @@ async function show(request, response) {
 
         // qui uso l'id del prodotto, non lo slug della rotta
         const [categories] = await connection.execute(queryCategories, [product.id]);
-        
+
         // al prodotto attacco le categorie associate
         product.categories = categories;
-        
+
         response.json({
             error: null,
             results: product
@@ -78,5 +78,37 @@ async function show(request, response) {
     }
 };
 
+async function rarest(request, response) {
+    const query = `
+        SELECT name, slug, price, rarity, image
+        FROM products
+        ORDER BY 
+            CASE rarity
+                WHEN 'legendary' THEN 3
+                WHEN 'rare' THEN 2
+                WHEN 'common' THEN 1
+                ELSE 0
+            END DESC
+        LIMIT 5
+    `;
 
-export {index, show}
+    try {
+        const [rows] = await connection.query(query);
+
+        response.json({
+            error: null,
+            results: rows
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        response.status(500).json({
+            error: "Internal Server Error",
+            message: "Errore durante il recupero dei prodotti più rari",
+        });
+    }
+}
+
+
+export { index, show, rarest };
