@@ -51,19 +51,30 @@ async function show (request, response) {
 
         // query per i prodotti associati
         const queryProducts = `
-            select p.name, p.price, p.image, op.quantity, o.order_number, o.customer_name
+            select p.name, p.price, p.image, op.quantity, o.order_number, o.customer_name, op.price as unit_price, (op.quantity * op.price) as line_total
             from order_product op
                 join products p
                     on op.product_id = p.id
                 join orders o
                     on op.order_id = o.id
-            where op.order_id = 8;
+            where op.order_id = ?;
         `;
 
         // associo i prodotti
         const [products] = await connection.execute(queryProducts, [order.id]);
 
-        order.product = products;
+        // in caso ci siano più prodotti nel ordine, sommo
+        const orderTotal = products.reduce((sum, row) => sum + Number(row.line_total), 0);
+
+        const orderWithNumbers = products.map(row => ({
+            ...row,
+            price: Number(row.price),
+            unit_price: Number(row.unit_price),
+            line_total: Number(row.line_total)
+        }));
+        
+        order.product = orderWithNumbers;
+        order.total = orderTotal;
 
         response.json({
             error: null,
