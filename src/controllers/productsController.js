@@ -176,13 +176,111 @@ async function create(request, response) {
     }
 };
 
-async function modify(request, response) {
+async function modify (request, response) {
+
+    const { slug } = request.params;
+    const { name, description, price, rarity } = request.body;
+
+    const fields = [];
+    const values = [];
+
+    if (name !== undefined) {
+        if (name.length > 50) {
+            return response.status(400).json({
+                success: false,
+                message: 'Il nome è troppo lungo'
+            });
+        }
+
+        const newSlug = slugify(name);
+        const newImage = `${newSlug}.png`;
+
+        fields.push('name = ?', 'slug = ?', 'image = ?');
+        values.push(name, newSlug, newImage);
+    }
+
+    if (description !== undefined) {
+        if (description.length > 750) {
+            return response.status(400).json({
+                success: false,
+                message: 'La descrizione è troppo lunga'
+            });
+        }
+        fields.push('description = ?');
+        values.push(description);
+    }
+
+    if (price !== undefined) {
+        if (price <= 0 || isNaN(price)) {
+            return response.status(400).json({
+                success: false,
+                message: 'Inserire un prezzo valido'
+            });
+        }
+        fields.push('price = ?');
+        values.push(price);
+    }
+
+    if (rarity !== undefined) {
+        const validRarities = ['common', 'rare', 'legendary'];
+        if (!validRarities.includes(rarity)) {
+            return response.status(400).json({
+                success: false,
+                message: 'La rarità deve essere common, rare o legendary'
+            });
+        }
+        fields.push('rarity = ?');
+        values.push(rarity);
+    }
+
+    if (fields.length === 0) {
+        return response.status(400).json({
+            success: false,
+            message: 'Nessun campo da aggiornare'
+        });
+    }
+
+    fields.push('updated_at = NOW()');
+    values.push(slug);
+
+    const query = `
+        update products
+        set ${fields.join(', ')}
+        where slug = ?
+    `;
+
     try {
+        const [result] = await connection.execute(query, values);
+
+        if (result.affectedRows === 0) {
+            return response.status(404).json({
+                success: false,
+                message: 'Prodotto non trovato'
+            });
+        }
+
+        response.json({
+            success: true,
+            message: `${name} aggiornato con successo`
+        });
 
     } catch (error) {
+        console.error(error);
 
+        if (error.code === 'ER_DUP_ENTRY') {
+            return response.status(409).json({
+                success: false,
+                message: 'Esiste già un prodotto con questo nome'
+            });
+        }
+
+        response.status(500).json({
+            success: false,
+            message: `Errore durante l'aggiornamento del prodotto`
+        });
     }
 };
+
 
 async function destroy(request, response) {
 
