@@ -1,4 +1,5 @@
 import connection from "../db/connections/connection.js";
+import { slugify } from "../utils/slugify.js";
 
 async function index(request, response) {
 
@@ -108,8 +109,216 @@ async function rarest(request, response) {
             message: "Errore durante il recupero dei prodotti più rari",
         });
     }
-}
+};
 
+async function create(request, response) {
+
+    const { name, description, price, rarity } = request.body;
+
+    if (!name || !price || !rarity) {
+        return response.status(400).json({
+            success: false,
+            message: 'Inserire nome, prezzo e rarità'
+        });
+    }
+    if (price <= 0 || isNaN(price)) {
+        return response.status(400).json({
+            success: false,
+            message: 'Inserire un prezzo valido'
+        });
+    }
+
+    if (name.length > 50 || description.length > 750) {
+        return response.status(400).json({
+            success: false,
+            message: 'Nome o descrizione troppo lunghi'
+        });
+    }
+
+    if (rarity != 'common' && rarity != 'rare' && rarity != 'legendary') {
+        return response.status(400).json({
+            success: false,
+            message: 'La rarità deve esse common, rare o legendary'
+        });
+    }
+
+    const slug = slugify(name);
+    const image = `${slug}.png`;
+
+    const query = `
+    insert into products (name, slug, description, price, rarity, image, created_at, updated_at)
+    values (?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `;
+
+    try {
+
+        const [result] = await connection.execute(query, [name, slug, description, price, rarity, image]);
+
+        response.status(201).json({
+            success: true,
+            result: result,
+            message: `${name} inserito con successo`
+        })
+
+    } catch (error) {
+        // Errore duplicati (name, slug e img sono unique)
+        if (error.code === 'ER_DUP_ENTRY') {
+            return response.status(409).json({
+                success: false,
+                message: 'Esiste già un prodotto con questo nome'
+            });
+        }
+
+        response.status(500).json({
+            success: false,
+            message: 'Errore durante la creazione del prodotto'
+        });
+    }
+};
+
+async function modify (request, response) {
+
+    const { slug } = request.params;
+    const { name, description, price, rarity } = request.body;
+
+    const fields = [];
+    const values = [];
+
+    if (name !== undefined) {
+        if (name.length > 50) {
+            return response.status(400).json({
+                success: false,
+                message: 'Il nome è troppo lungo'
+            });
+        }
+
+        const newSlug = slugify(name);
+        const newImage = `${newSlug}.png`;
+
+        fields.push('name = ?', 'slug = ?', 'image = ?');
+        values.push(name, newSlug, newImage);
+    }
+
+    if (description !== undefined) {
+        if (description.length > 750) {
+            return response.status(400).json({
+                success: false,
+                message: 'La descrizione è troppo lunga'
+            });
+        }
+        fields.push('description = ?');
+        values.push(description);
+    }
+
+    if (price !== undefined) {
+        if (price <= 0 || isNaN(price)) {
+            return response.status(400).json({
+                success: false,
+                message: 'Inserire un prezzo valido'
+            });
+        }
+        fields.push('price = ?');
+        values.push(price);
+    }
+
+    if (rarity !== undefined) {
+        const validRarities = ['common', 'rare', 'legendary'];
+        if (!validRarities.includes(rarity)) {
+            return response.status(400).json({
+                success: false,
+                message: 'La rarità deve essere common, rare o legendary'
+            });
+        }
+        fields.push('rarity = ?');
+        values.push(rarity);
+    }
+
+    if (fields.length === 0) {
+        return response.status(400).json({
+            success: false,
+            message: 'Nessun campo da aggiornare'
+        });
+    }
+
+    fields.push('updated_at = NOW()');
+    values.push(slug);
+
+    const query = `
+        update products
+        set ${fields.join(', ')}
+        where slug = ?
+    `;
+
+    try {
+        const [result] = await connection.execute(query, values);
+
+        if (result.affectedRows === 0) {
+            return response.status(404).json({
+                success: false,
+                message: 'Prodotto non trovato'
+            });
+        }
+
+        response.json({
+            success: true,
+            message: `${name} aggiornato con successo`
+          
+                  if (error.code === 'ER_DUP_ENTRY') {
+            return response.status(409).json({
+                success: false,
+                message: 'Esiste già un prodotto con questo nome'
+            });
+        }
+
+        response.status(500).json({
+            success: false,
+            message: `Errore durante l'aggiornamento del prodotto`
+        });
+    }
+};
+
+
+async function destroy(request, response) {
+
+    const { slug } = request.params;
+
+    const query = `
+        delete from products
+        where slug = ?
+    `;
+
+    try {
+        const [result] = await connection.execute(query, [slug]);
+
+        if (result.affectedRows === 0) {
+            return response.status(404).json({
+                success: false,
+                message: 'Prodotto non trovato'
+            });
+        }
+
+        response.json({
+            success: true,
+            message: `Prodotto con slug ${slug} eliminato con successo`
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        // se il prodotto è già presente in almeno un ordine
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            return response.status(409).json({
+                success: false,
+                message: 'Non puoi eliminare questo prodotto: è presente in almeno un ordine esistente'
+            });
+        }
+
+        response.status(500).json({
+            success: false,
+            message: "Errore durante l'eliminazione del prodotto"
+        });
+    };
+  
 async function cheapest(request, response) {
     const query = `
         SELECT name, slug, price, rarity, image
@@ -128,13 +337,16 @@ async function cheapest(request, response) {
 
     } catch (error) {
         console.error(error);
-
         response.status(500).json({
-            error: "Internal Server Error",
-            message: "Errore durante il recupero dei prodotti più economici",
-        });
+          error: "Internal Server Error",
+          message: "Errore durante il recupero dei prodotti più economici",
+          });
     }
 }
+};
+      
 
 
-export { index, show, rarest, cheapest };
+export { index, show, rarest, cheapest, create, modify, destroy };
+
+
