@@ -1,4 +1,5 @@
 import connection from "../db/connections/connection.js";
+import { slugify } from "../utils/slugify.js";
 
 async function index(request, response) {
 
@@ -108,7 +109,87 @@ async function rarest(request, response) {
             message: "Errore durante il recupero dei prodotti più rari",
         });
     }
-}
+};
 
+async function create(request, response) {
 
-export { index, show, rarest };
+    const { name, description, price, rarity } = request.body;
+
+    if (!name || !price || !rarity) {
+        return response.status(400).json({
+            success: false,
+            message: 'Inserire nome, prezzo e rarità'
+        });
+    }
+    if (price <= 0 || isNaN(price)) {
+        return response.status(400).json({
+            success: false,
+            message: 'Inserire un prezzo valido'
+        });
+    }
+
+    if (name.length > 50 || description.length > 750) {
+        return response.status(400).json({
+            success: false,
+            message: 'Nome o descrizione troppo lunghi'
+        });
+    }
+
+    if (rarity != 'common' && rarity != 'rare' && rarity != 'legendary') {
+        return response.status(400).json({
+            success: false,
+            message: 'La rarità deve esse common, rare o legendary'
+        });
+    }
+
+    const slug = slugify(name);
+    const image = `${slug}.png`;
+
+    const query = `
+    insert into products (name, slug, description, price, rarity, image, created_at, updated_at)
+    values (?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `;
+
+    try {
+
+        const [result] = await connection.execute(query, [name, slug, description, price, rarity, image]);
+
+        response.status(201).json({
+            success: true,
+            result: result,
+            message: `${name} inserito con successo`
+        })
+
+    } catch (error) {
+        // Errore duplicati (name, slug e img sono unique)
+        if (error.code === 'ER_DUP_ENTRY') {
+            return response.status(409).json({
+                success: false,
+                message: 'Esiste già un prodotto con questo nome'
+            });
+        }
+
+        response.status(500).json({
+            success: false,
+            message: 'Errore durante la creazione del prodotto'
+        });
+    }
+};
+
+async function modify(request, response) {
+    try {
+
+    } catch (error) {
+
+    }
+};
+
+async function destroy(request, response) {
+    try {
+
+    } catch (error) {
+
+    }
+};
+
+export { index, show, rarest, create, modify, destroy };
