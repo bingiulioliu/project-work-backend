@@ -192,6 +192,13 @@ async function modify(request, response) {
             });
         }
 
+        if (name.length < 5) {
+            return response.status(400).json({
+                success: false,
+                message: 'Il nome è troppo corto'
+            });
+        }
+
         const newSlug = slugify(name);
         const newImage = `${newSlug}.png`;
 
