@@ -136,7 +136,6 @@ FROM (
     UNION ALL SELECT 'penna-firma-reale', 'ultimi-arrivi'
 
     -- Bastone tra le Ruote
-    SELECT 'bastone-tra-le-ruote' AS product_slug, 'equipaggiamento' AS category_slug
     UNION ALL SELECT 'bastone-tra-le-ruote', 'reliquie'
     UNION ALL SELECT 'bastone-tra-le-ruote', 'edizione-limitata'
     UNION ALL SELECT 'bastone-tra-le-ruote', 'approvato-dal-master'
