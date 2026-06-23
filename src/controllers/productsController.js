@@ -3,19 +3,67 @@ import { slugify } from "../utils/slugify.js";
 
 async function index(request, response) {
 
+    const {sort, order, rarity, search, category} = request.query;
+
+    const allowedSorts = {
+        price: 'p.price',
+        name: 'p.name',
+        rarity: 'p.rarity',
+        created_at: 'p.created_at'
+    };
+
+    const sortColumn = allowedSorts[sort] || 'p.name';
+    const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
+
+    const conditions = [];
+    const values = [];
+
+    // validazioni e push
+    if (rarity) {
+        const validRarities = ['common','rare','legendary'];
+        if (!validRarities.includes(rarity)) {
+            return response.status(400).json({
+                error: 'Rarità non valida',
+                result: null
+            });
+        }
+        conditions.push('p.rarity = ?');
+        values.push(rarity);
+    }
+
+    if (search) {
+        conditions.push('(p.name LIKE ? OR p.description LIKE ?)');
+        values.push(`%${search}%`, `%${search}`);
+    }
+
+    let joinCategory = '';
+    if (category) {
+        joinCategory = `
+            join category_product cp on cp.product_id = p.id
+            join categories c on c.id = cp.category_id
+        `;
+        conditions.push('c.slug = ?');
+        values.push(category);
+    }
+
+    const whereClause = conditions.length > 0 ? `where ${conditions.join(' and ')}` : '';
+
     const query = `
-    select name, slug, price, rarity, image, description
-    from products
+        select distinct p.name, p.slug, p.price, p.rarity, p.image, p.description
+        from products p
+        ${joinCategory}
+        ${whereClause}
+        order by ${sortColumn} ${sortOrder}
     `;
 
     try {
 
-        const [rows] = await connection.query(query);
+        const [rows] = await connection.query(query, values);
 
         response.json({
             error: null,
             results: rows
-        })
+        });
 
     } catch (error) {
         console.error(error);
