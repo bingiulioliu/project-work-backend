@@ -3,17 +3,62 @@ import connection from "../db/connections/connection.js";
 async function index(request, response) {
 
     const query = `
-    select customer_name, customer_address, customer_city, order_number
-    from orders
+    select 
+        o.id,
+        o.order_number,
+        o.customer_name,
+        o.customer_address,
+        o.customer_city,
+        p.name as product_name,
+        p.price,
+        p.image,
+        op.quantity,
+        op.price as unit_price
+    from orders o
+    left join order_product op on o.id = op.order_id
+    left join products p on op.product_id = p.id
+    order by o.order_number
     `;
 
     try {
 
         const [rows] = await connection.query(query);
 
+        // Raggruppa i risultati per ordine
+        const orders = {};
+
+        rows.forEach(row => {
+            const { id, order_number, customer_name, customer_address, customer_city, product_name, price, image, quantity, unit_price } = row;
+
+            if (!orders[order_number]) {
+                orders[order_number] = {
+                    id,
+                    order_number,
+                    customer_name,
+                    customer_address,
+                    customer_city,
+                    products: []
+                };
+            }
+
+            // Aggiungi il prodotto solo se esiste
+            if (product_name) {
+                orders[order_number].products.push({
+                    name: product_name,
+                    price: Number(price),
+                    image,
+                    quantity: Number(quantity),
+                    unit_price: Number(unit_price),
+                    line_total: Number(quantity) * Number(unit_price)
+                });
+            }
+        });
+
+        const results = Object.values(orders);
+
         response.json({
             error: null,
-            results: rows
+            results: results
         })
 
     } catch (error) {
@@ -21,7 +66,7 @@ async function index(request, response) {
 
         response.status(500).json({
             error: "Internal Server Error",
-            message: "Errore durante il recupero delle categorie",
+            message: "Errore durante il recupero degli ordini",
         });
     }
 };
@@ -91,13 +136,13 @@ async function show (request, response) {
 };
 
 async function create(request, response) {
-    const { customer_name, customer_address, customer_city, order_number } = request.body;
+    const { customer_name, customer_address, customer_city, order_number, mail, products} = request.body;
 
-    if (!customer_name || !customer_address || !customer_city || !order_number) {
+    if (!customer_name || !customer_address || !customer_city || !order_number || !mail) {
         return response.status(400).json({
             error: 'Dati mancanti',
             results: null,
-            message: 'customer_name, customer_address, customer_city e order_number sono obbligatori'
+            message: 'customer_name, customer_address, customer_city, mail e order_number sono obbligatori'
         });
     }
 
@@ -107,10 +152,10 @@ async function create(request, response) {
             customer_name,
             customer_address,
             customer_city,
+            mail,
             customer_postal_code,
             notes,
             telephone_number,
-            mail,
             created_at,
             updated_at
         ) values (?, ?, ?, ?, ?, ?, ?, ?, now(), now())
@@ -121,6 +166,8 @@ async function create(request, response) {
         customer_name,
         customer_address,
         customer_city,
+        mail,
+        '',
         '',
         '',
         '',
@@ -129,15 +176,72 @@ async function create(request, response) {
 
     try {
         const [result] = await connection.execute(query, values);
+        const orderId = result.insertId;
+
+        let orderProducts = [];
+
+        // Se ci sono prodotti, aggiungili all'ordine
+        if (products && Array.isArray(products) && products.length > 0) {
+            for (const product of products) {
+                const { product_id, quantity } = product;
+
+                if (!product_id || !quantity) {
+                    return response.status(400).json({
+                        error: 'Dati prodotto mancanti',
+                        results: null,
+                        message: 'Ogni prodotto deve avere product_id e quantity'
+                    });
+                }
+
+                // Recupera i dati del prodotto
+                const [productData] = await connection.execute(
+                    'select id, name, price, image from products where id = ?',
+                    [product_id]
+                );
+
+                if (productData.length === 0) {
+                    return response.status(404).json({
+                        error: 'Prodotto non trovato',
+                        results: null,
+                        message: `Prodotto con id ${product_id} non esiste`
+                    });
+                }
+
+                const productInfo = productData[0];
+                const unitPrice = productInfo.price;
+
+                // Aggiungi il prodotto all'ordine
+                const queryInsertProduct = `
+                    insert into order_product (order_id, product_id, quantity, price)
+                    values (?, ?, ?, ?)
+                `;
+
+                await connection.execute(queryInsertProduct, [orderId, product_id, quantity, unitPrice]);
+
+                // Aggiungi i dati del prodotto alla lista
+                orderProducts.push({
+                    product_id,
+                    name: productInfo.name,
+                    price: Number(productInfo.price),
+                    image: productInfo.image,
+                    quantity: Number(quantity),
+                    unit_price: Number(unitPrice),
+                    line_total: Number(quantity) * Number(unitPrice)
+                });
+            }
+        }
 
         response.status(201).json({
             error: null,
             results: {
-                id: result.insertId,
+                id: orderId,
                 customer_name,
                 customer_address,
                 customer_city,
-                order_number
+                order_number,
+                mail,
+                products: orderProducts,
+                total: orderProducts.reduce((sum, p) => sum + p.line_total, 0)
             }
         });
     } catch (error) {
