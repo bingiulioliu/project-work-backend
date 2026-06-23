@@ -3,7 +3,7 @@ import { slugify } from "../utils/slugify.js";
 
 async function index(request, response) {
 
-    const {sort, order, rarity, search, category} = request.query;
+    const {sort, order, rarity, search, category, min_price, max_price} = request.query;
 
     const allowedSorts = {
         price: 'p.price',
@@ -44,6 +44,16 @@ async function index(request, response) {
         `;
         conditions.push('c.slug = ?');
         values.push(category);
+    }
+
+    if (min_price) {
+        conditions.push('p.price >= ?');
+        values.push(min_price);
+    }
+
+    if (max_price) {
+        conditions.push('p.price <= ?');
+        values.push(max_price);
     }
 
     const whereClause = conditions.length > 0 ? `where ${conditions.join(' and ')}` : '';
