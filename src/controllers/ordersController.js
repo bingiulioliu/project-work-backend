@@ -10,7 +10,6 @@ async function index(request, response) {
         o.customer_address,
         o.customer_city,
         p.name as product_name,
-        p.price,
         p.image,
         op.quantity,
         op.price as unit_price
@@ -96,7 +95,7 @@ async function show (request, response) {
 
         // query per i prodotti associati
         const queryProducts = `
-            select p.name, p.price, p.image, op.quantity, o.order_number, o.customer_name, op.price as unit_price, (op.quantity * op.price) as line_total
+            select p.name, p.image, op.quantity, o.order_number, o.customer_name, op.price as unit_price, round(op.quantity * op.price, 2) as line_total
             from order_product op
                 join products p
                     on op.product_id = p.id
@@ -113,7 +112,6 @@ async function show (request, response) {
 
         const orderWithNumbers = products.map(row => ({
             ...row,
-            price: Number(row.price),
             unit_price: Number(row.unit_price),
             line_total: Number(row.line_total)
         }));

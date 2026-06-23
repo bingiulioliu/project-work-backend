@@ -4,7 +4,7 @@ import { slugify } from "../utils/slugify.js";
 async function index(request, response) {
 
     const query = `
-    select name, slug, price, rarity, image
+    select name, slug, price, rarity, image, description
     from products
     `;
 
