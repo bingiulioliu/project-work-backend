@@ -2,77 +2,128 @@ import connection from "../db/connections/connection.js";
 import { slugify } from "../utils/slugify.js";
 
 async function index(request, response) {
+    const {
+        sort,
+        order,
+        rarity,
+        search,
+        category,
+        min_price,
+        max_price,
+        page = 1,
+        limit = 10
+    } = request.query;
 
-    const {sort, order, rarity, search, category, min_price, max_price} = request.query;
+    const currentPage = Math.max(Number(page), 1);
+    const productsPerPage = Math.max(Number(limit), 1);
+    const offset = (currentPage - 1) * productsPerPage;
 
     const allowedSorts = {
-        price: 'p.price',
-        name: 'p.name',
-        rarity: 'p.rarity',
-        created_at: 'p.created_at'
+        price: "p.price",
+        name: "p.name",
+        rarity: "p.rarity",
+        created_at: "p.created_at"
     };
 
-    const sortColumn = allowedSorts[sort] || 'p.name';
-    const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
+    const sortColumn = allowedSorts[sort] || "p.name";
+    const sortOrder = order === "desc" ? "DESC" : "ASC";
 
     const conditions = [];
     const values = [];
 
-    // validazioni e push
     if (rarity) {
-        const validRarities = ['common','rare','legendary'];
+        const validRarities = ["common", "rare", "legendary"];
+
         if (!validRarities.includes(rarity)) {
             return response.status(400).json({
-                error: 'Rarità non valida',
-                result: null
+                error: "Rarità non valida",
+                results: null
             });
         }
-        conditions.push('p.rarity = ?');
+
+        conditions.push("p.rarity = ?");
         values.push(rarity);
     }
 
     if (search) {
-        conditions.push('(p.name LIKE ? OR p.description LIKE ?)');
-        values.push(`%${search}%`, `%${search}`);
+        conditions.push("(p.name LIKE ? OR p.description LIKE ?)");
+        values.push(`%${search}%`, `%${search}%`);
     }
 
-    let joinCategory = '';
+    let joinCategory = "";
+
     if (category) {
         joinCategory = `
-            join category_product cp on cp.product_id = p.id
-            join categories c on c.id = cp.category_id
+            JOIN category_product cp 
+                ON cp.product_id = p.id
+            JOIN categories c 
+                ON c.id = cp.category_id
         `;
-        conditions.push('c.slug = ?');
+
+        conditions.push("c.slug = ?");
         values.push(category);
     }
 
     if (min_price) {
-        conditions.push('p.price >= ?');
-        values.push(min_price);
+        conditions.push("p.price >= ?");
+        values.push(Number(min_price));
     }
 
     if (max_price) {
-        conditions.push('p.price <= ?');
-        values.push(max_price);
+        conditions.push("p.price <= ?");
+        values.push(Number(max_price));
     }
 
-    const whereClause = conditions.length > 0 ? `where ${conditions.join(' and ')}` : '';
+    const whereClause = conditions.length > 0
+        ? `WHERE ${conditions.join(" AND ")}`
+        : "";
 
-    const query = `
-        select distinct p.name, p.slug, p.price, p.rarity, p.image, p.description
-        from products p
+    const queryProducts = `
+        SELECT DISTINCT 
+            p.id,
+            p.name,
+            p.slug,
+            p.price,
+            p.rarity,
+            p.image,
+            p.description,
+            p.created_at
+        FROM products p
         ${joinCategory}
         ${whereClause}
-        order by ${sortColumn} ${sortOrder}
+        ORDER BY ${sortColumn} ${sortOrder}
+        LIMIT ? OFFSET ?
+    `;
+
+    const queryCount = `
+        SELECT COUNT(DISTINCT p.id) AS totalProducts
+        FROM products p
+        ${joinCategory}
+        ${whereClause}
     `;
 
     try {
+        const productValues = [
+            ...values,
+            productsPerPage,
+            offset
+        ];
 
-        const [rows] = await connection.query(query, values);
+        const [rows] = await connection.query(queryProducts, productValues);
+        const [countRows] = await connection.query(queryCount, values);
+
+        const totalProducts = countRows[0].totalProducts;
+        const totalPages = Math.ceil(totalProducts / productsPerPage);
 
         response.json({
             error: null,
-            results: rows
+            results: rows,
+            pagination: {
+                currentPage,
+                totalPages,
+                totalProducts,
+                limit: productsPerPage
+            }
         });
 
     } catch (error) {
@@ -83,7 +134,7 @@ async function index(request, response) {
             message: "Errore durante il recupero dei prodotti",
         });
     }
-};
+}
 
 async function show(request, response) {
     const { slug } = request.params;
