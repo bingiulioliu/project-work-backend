@@ -167,8 +167,6 @@ async function create(request, response) {
         mail,
         '',
         '',
-        '',
-        '',
         ''
     ];
 
