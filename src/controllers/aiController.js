@@ -1,7 +1,7 @@
 import { askAnthropic } from "../services/anthropicService.js";
 
 async function assistant(request, response) {
-    const { message } = request.body;
+    const { message, sessionId } = request.body;
 
     if (!process.env.ANTHROPIC_API_KEY) {
         console.error("[assistant] ANTHROPIC_API_KEY non configurato");
@@ -21,9 +21,12 @@ async function assistant(request, response) {
         });
     }
 
+    // Usa sessionId fornito o "default" se non presente
+    const usedSessionId = sessionId && typeof sessionId === "string" ? sessionId.trim() : "default";
+
     try {
-        console.log("[assistant] Inizio elaborazione con prompt:", message);
-        const result = await askAnthropic(message.trim());
+        console.log("[assistant] Inizio elaborazione con prompt:", message, "sessionId:", usedSessionId);
+        const result = await askAnthropic(message.trim(), usedSessionId);
         console.log("[assistant] Risposta generata con successo");
 
         return response.json({
