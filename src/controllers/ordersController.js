@@ -288,7 +288,8 @@ async function create(request, response) {
                 image: productInfo.image,
                 quantity,
                 unit_price: unitPrice,
-                line_total: Number(lineTotal.toFixed(2))
+                line_total: Number(lineTotal.toFixed(2)),
+                total: Number(total.toFixed(2))
             });
 
             total += lineTotal;
