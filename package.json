@@ -23,8 +23,7 @@
     "@langchain/core": "^1.2.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "mysql2": "^3.22.5",
-    "nodemailer": "^9.0.1"
+    "nodemailer": "^9.0.1",
     "langchain": "^1.5.1",
     "mysql2": "^3.22.5",
     "zod": "^4.4.3"
