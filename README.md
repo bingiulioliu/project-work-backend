@@ -40,3 +40,42 @@ Per arricchire l'esperienza di gioco e completare i requisiti tecnici, il team h
 Pop-up di Benvenuto (Punti: 3) — L'Incontro con l'NPC: Un personaggio non giocante (un vecchio saggio o un mercante logorroico) accoglie l'utente al suo primo ingresso nel sito, offrendo una pergamena con un codice sconto speciale.
 Wishlist (Punti: 2) — Il Libro dei Desideri: Consente agli avventurieri di salvare gli equipaggiamenti epici o le pozioni più costose in una lista dei desideri personalizzata, per poterli acquistare nelle missioni successive.
 Assistente AI (Punti: 5) — La Sfera di Cristallo: Un assistente virtuale intelligente integrato nell'interfaccia. Agisce come un "Master" o un famiglio magico, guidando l'utente nella scelta del prodotto ideale in base alle risposte fornite in chat.
+
+### Integrazione Anthropic con LangChain (Backend)
+
+Per usare l'assistente AI via API:
+
+1. Aggiungi queste variabili nel file `.env`:
+
+```env
+ANTHROPIC_API_KEY=la_tua_chiave
+ANTHROPIC_MODEL=claude-3-5-haiku-20241022
+```
+
+`ANTHROPIC_MODEL` e' opzionale.
+
+2. Avvia il backend:
+
+```bash
+pnpm start
+```
+
+3. Chiama l'endpoint:
+
+```http
+POST /ai/assistant
+Content-Type: application/json
+
+{
+	"message": "Consigliami un prodotto per un regalo fantasy"
+}
+```
+
+Risposta attesa:
+
+```json
+{
+	"error": null,
+	"result": "...risposta del modello..."
+}
+```
