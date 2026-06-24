@@ -70,7 +70,7 @@ async function index(request, response) {
     }
 };
 
-async function show (request, response) {
+async function show(request, response) {
     const { order_number } = request.params;
 
     const query = `
@@ -115,7 +115,7 @@ async function show (request, response) {
             unit_price: Number(row.unit_price),
             line_total: Number(row.line_total)
         }));
-        
+
         order.product = orderWithNumbers;
         order.total = orderTotal;
 
@@ -134,13 +134,28 @@ async function show (request, response) {
 };
 
 async function create(request, response) {
-    const { customer_name, customer_address, customer_city, order_number, mail, products} = request.body;
+    const {
+        customer_name,
+        customer_address,
+        customer_city,
+        customer_postal_code,
+        telephone_number,
+        mail,
+        notes,
+        products } = request.body;
 
-    if (!customer_name || !customer_address || !customer_city || !order_number || !mail) {
+    if (
+        !customer_name ||
+        !customer_address ||
+        !customer_city ||
+        !customer_postal_code ||
+        !telephone_number ||
+        !mail
+    ) {
         return response.status(400).json({
-            error: 'Dati mancanti',
+            error: 'Dati cliente mancanti',
             results: null,
-            message: 'customer_name, customer_address, customer_city, mail e order_number sono obbligatori'
+            message: 'Nome, indirizzo, città, CAP, telefono ed email sono obbligatori'
         });
     }
 
@@ -159,88 +174,149 @@ async function create(request, response) {
         ) values (?, ?, ?, ?, ?, ?, ?, ?, now(), now())
     `;
 
-    const values = [
-        order_number,
-        customer_name,
-        customer_address,
-        customer_city,
-        mail,
-        '',
-        '',
-        ''
-    ];
+    if (!products || !Array.isArray(products) || products.length === 0) {
+        return response.status(400).json({
+            error: "Carrello vuoto",
+            results: null,
+            message: "L'ordine deve contenere almeno un prodotto"
+        });
+    }
+
+    const invalidProduct = products.find((product) => {
+        return !product.product_id || !product.quantity || Number(product.quantity) <= 0;
+    });
+
+    if (invalidProduct) {
+        return response.status(400).json({
+            error: "Prodotti non validi",
+            results: null,
+            message: "Ogni prodotto deve avere product_id e quantity maggiore di 0"
+        });
+    }
+
+    const dbConnection = connection;
+
 
     try {
-        const [result] = await connection.execute(query, values);
-        const orderId = result.insertId;
+        await dbConnection.beginTransaction();
 
-        let orderProducts = [];
+        const productIds = products.map((product) => Number(product.product_id));
+        const placeholders = productIds.map(() => "?").join(", ");
 
-        // Se ci sono prodotti, aggiungili all'ordine
-        if (products && Array.isArray(products) && products.length > 0) {
-            for (const product of products) {
-                const { product_id, quantity } = product;
+        const queryProducts = `
+            SELECT id, name, price, image
+            FROM products
+            WHERE id IN (${placeholders})
+        `;
 
-                if (!product_id || !quantity) {
-                    return response.status(400).json({
-                        error: 'Dati prodotto mancanti',
-                        results: null,
-                        message: 'Ogni prodotto deve avere product_id e quantity'
-                    });
-                }
+        const [dbProducts] = await dbConnection.query(queryProducts, productIds);
 
-                // Recupera i dati del prodotto
-                const [productData] = await connection.execute(
-                    'select id, name, price, image from products where id = ?',
-                    [product_id]
-                );
+        if (dbProducts.length !== productIds.length) {
+            await dbConnection.rollback();
 
-                if (productData.length === 0) {
-                    return response.status(404).json({
-                        error: 'Prodotto non trovato',
-                        results: null,
-                        message: `Prodotto con id ${product_id} non esiste`
-                    });
-                }
-
-                const productInfo = productData[0];
-                const unitPrice = productInfo.price;
-
-                // Aggiungi il prodotto all'ordine
-                const queryInsertProduct = `
-                    insert into order_product (order_id, product_id, quantity, price)
-                    values (?, ?, ?, ?)
-                `;
-
-                await connection.execute(queryInsertProduct, [orderId, product_id, quantity, unitPrice]);
-
-                // Aggiungi i dati del prodotto alla lista
-                orderProducts.push({
-                    product_id,
-                    name: productInfo.name,
-                    price: Number(productInfo.price),
-                    image: productInfo.image,
-                    quantity: Number(quantity),
-                    unit_price: Number(unitPrice),
-                    line_total: Number(quantity) * Number(unitPrice)
-                });
-            }
+            return response.status(404).json({
+                error: "Prodotto non trovato",
+                results: null,
+                message: "Uno o più prodotti del carrello non esistono"
+            });
         }
 
-        response.status(201).json({
-            error: null,
-            results: {
-                id: orderId,
+        const orderNumber = `ORD-${Date.now().toString().slice(-6)}`;
+        
+
+        const queryOrder = `
+            INSERT INTO orders (
+                order_number,
                 customer_name,
                 customer_address,
                 customer_city,
-                order_number,
+                customer_postal_code,
+                notes,
+                telephone_number,
                 mail,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        `;
+
+        const [orderResult] = await dbConnection.execute(queryOrder, [
+            orderNumber,
+            customer_name,
+            customer_address,
+            customer_city,
+            customer_postal_code,
+            notes || "",
+            telephone_number,
+            mail
+        ]);
+
+        const orderId = orderResult.insertId;
+
+        const queryOrderProduct = `
+            INSERT INTO order_product (
+                order_id,
+                product_id,
+                quantity,
+                price
+            )
+            VALUES (?, ?, ?, ?)
+        `;
+
+        let orderProducts = [];
+        let total = 0;
+
+        for (const cartProduct of products) {
+            const productInfo = dbProducts.find((dbProduct) => {
+                return dbProduct.id === Number(cartProduct.product_id);
+            });
+
+            const quantity = Number(cartProduct.quantity);
+            const unitPrice = Number(productInfo.price);
+            const lineTotal = quantity * unitPrice;
+
+            await dbConnection.execute(queryOrderProduct, [
+                orderId,
+                productInfo.id,
+                quantity,
+                unitPrice
+            ]);
+
+            orderProducts.push({
+                product_id: productInfo.id,
+                name: productInfo.name,
+                image: productInfo.image,
+                quantity,
+                unit_price: unitPrice,
+                line_total: Number(lineTotal.toFixed(2))
+            });
+
+            total += lineTotal;
+        }
+
+        await dbConnection.commit();
+
+        response.status(201).json({
+            error: null,
+            message: "Ordine creato correttamente",
+            results: {
+                id: orderId,
+                order_number: orderNumber,
+                customer_name,
+                customer_address,
+                customer_city,
+                customer_postal_code,
+                telephone_number,
+                mail,
+                notes: notes || "",
                 products: orderProducts,
-                total: orderProducts.reduce((sum, p) => sum + p.line_total, 0)
+                total: Number(total.toFixed(2))
             }
         });
+
     } catch (error) {
+        await dbConnection.rollback();
+
         console.error(error);
 
         if (error?.code === 'ER_DUP_ENTRY') {
@@ -252,7 +328,8 @@ async function create(request, response) {
 
         response.status(500).json({
             error: 'Errore interno del server',
-            results: null
+            results: null,
+            message: "Errore durante la creazione dell'ordine"
         });
     }
 };
