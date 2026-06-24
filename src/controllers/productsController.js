@@ -23,7 +23,7 @@ async function index(request, response) {
         price: "p.price",
         name: "p.name",
         rarity: "p.rarity",
-        updated_at: "p.updated_at"
+        created_at: "p.created_at"
     };
 
     const sortColumn = allowedSorts[sort] || "p.name";
@@ -88,7 +88,7 @@ async function index(request, response) {
             p.rarity,
             p.image,
             p.description,
-            p.updated_at
+            p.created_at
         FROM products p
         ${joinCategory}
         ${whereClause}
