@@ -1,3 +1,4 @@
+import { error } from "console";
 import connection from "../db/connections/connection.js";
 import { slugify } from "../utils/slugify.js";
 
@@ -463,5 +464,51 @@ async function cheapest(request, response) {
     }
 };
 
+async function suggested(request, response) {
+    const {slug} = request.params;
 
-export { index, show, rarest, cheapest, create, modify, destroy };
+    try {
+        // Recupero l'id
+        const [productRows] = await connection.execute(`
+                select id from products where slug = ?
+            `, [slug]);
+
+        if (productRows.length === 0 ) {
+            return response.status(404).json({
+                error: 'Prodotto non trovato',
+                results: null
+            });
+        }
+
+        const productId = productRows[0].id;
+
+        const querySuggested = `
+            select distinct p.id, p.name, p.slug, p.price, p.rarity, p.image
+            from products p
+                join category_product cp on cp.product_id = p.id
+            where cp.category_id in (
+                select category_id from category_product where product_id = ?)
+            and p.id != ?
+            order by rand()
+            limit 10
+        `;
+
+        const [suggested] = await connection.execute(querySuggested, [productId, productId]);
+
+        response.json({
+            error: null,
+            results: suggested,
+            message: 'Prodotti suggeriti caricati'
+        });
+
+    } catch(error) {
+        response.status(500).json({
+            error: 'Errore caricamento prodotti suggeriti',
+            results: null
+        });
+        console.log(error);
+    }
+};
+
+
+export { index, show, rarest, cheapest, create, modify, destroy, suggested };
