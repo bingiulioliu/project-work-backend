@@ -1,4 +1,8 @@
 import connection from "../db/connections/connection.js";
+import {
+    sendOrderConfirmationEmail,
+    sendOrderNotificationEmail,
+} from "../services/emailService.js";
 
 async function index(request, response) {
 
@@ -222,7 +226,7 @@ async function create(request, response) {
         }
 
         const orderNumber = `ORD-${Date.now().toString().slice(-6)}`;
-        
+
 
         const queryOrder = `
             INSERT INTO orders (
@@ -297,22 +301,44 @@ async function create(request, response) {
 
         await dbConnection.commit();
 
+        const createdOrder = {
+            id: orderId,
+            order_number: orderNumber,
+            customer_name,
+            customer_address,
+            customer_city,
+            customer_postal_code,
+            telephone_number,
+            mail,
+            notes: notes || "",
+            products: orderProducts,
+            total: Number(total.toFixed(2))
+        };
+
+        const emailStatus = {
+            customer: false,
+            seller: false,
+        };
+
+        try {
+            await sendOrderConfirmationEmail(createdOrder);
+            emailStatus.customer = true;
+        } catch (emailError) {
+            console.error("Errore invio email al cliente:", emailError);
+        }
+
+        try {
+            await sendOrderNotificationEmail(createdOrder);
+            emailStatus.seller = true;
+        } catch (emailError) {
+            console.error("Errore invio email al venditore:", emailError);
+        }
+
         response.status(201).json({
             error: null,
             message: "Ordine creato correttamente",
-            results: {
-                id: orderId,
-                order_number: orderNumber,
-                customer_name,
-                customer_address,
-                customer_city,
-                customer_postal_code,
-                telephone_number,
-                mail,
-                notes: notes || "",
-                products: orderProducts,
-                total: Number(total.toFixed(2))
-            }
+            results: createdOrder,
+            emails: emailStatus
         });
 
     } catch (error) {
