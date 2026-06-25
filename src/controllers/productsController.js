@@ -33,7 +33,9 @@ async function index(request, response) {
     const values = [];
 
     if (rarity) {
+        const requestedRarities = rarity.split(',').map(r => r.trim()).filter(Boolean);
         const validRarities = ["common", "rare", "legendary"];
+        const invalidRarities = requestedRarities.filter(r => !validRarities.includes(r));
 
         if (!validRarities.includes(rarity)) {
             return response.status(400).json({
@@ -42,8 +44,8 @@ async function index(request, response) {
             });
         }
 
-        conditions.push("p.rarity = ?");
-        values.push(rarity);
+        conditions.push(`p.rarity IN (${requestedRarities.map(() => '?').join(', ')})`);
+        values.push(...requestedRarities);
     }
 
     if (search) {
