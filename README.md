@@ -67,9 +67,13 @@ POST /ai/assistant
 Content-Type: application/json
 
 {
-	"message": "Consigliami un prodotto per un regalo fantasy"
+	"message": "Parlami di questo prodotto",
+	"sessionId": "product-detail-session",
+	"productSlug": "tazza-del-mana-termica"
 }
 ```
+
+`productSlug` (oppure `productId`) e' opzionale: se presente, l'assistente risponde solo in base al prodotto passato nel contesto.
 
 Risposta attesa:
 
