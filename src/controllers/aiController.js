@@ -1,7 +1,77 @@
 import { askAnthropic } from "../services/anthropicService.js";
+import connection from "../db/connections/connection.js";
+
+function extractProductSlugFromSessionId(sessionId) {
+    if (!sessionId || typeof sessionId !== "string") {
+        return "";
+    }
+
+    const normalized = sessionId.trim();
+    const patterns = [
+        /^product[-:_](.+)$/i,
+        /^show[-:_](.+)$/i,
+        /^product-detail[-:_](.+)$/i
+    ];
+
+    for (const pattern of patterns) {
+        const match = normalized.match(pattern);
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+    }
+
+    return "";
+}
+
+async function getProductContext({ productId, productSlug }) {
+    if (!productId && !productSlug) {
+        return null;
+    }
+
+    let query = `
+        SELECT id, name, slug, description, price, rarity, image
+        FROM products
+        WHERE id = ?
+        LIMIT 1
+    `;
+    let value = productId;
+
+    if (!productId && productSlug) {
+        query = `
+            SELECT id, name, slug, description, price, rarity, image
+            FROM products
+            WHERE slug = ?
+            LIMIT 1
+        `;
+        value = productSlug;
+    }
+
+    const [rows] = await connection.execute(query, [value]);
+
+    if (!rows.length) {
+        return null;
+    }
+
+    const product = rows[0];
+
+    const [categories] = await connection.execute(
+        `
+            SELECT c.name, c.slug
+            FROM category_product cp
+            JOIN categories c ON c.id = cp.category_id
+            WHERE cp.product_id = ?
+        `,
+        [product.id]
+    );
+
+    return {
+        ...product,
+        categories
+    };
+}
 
 async function assistant(request, response) {
-    const { message, sessionId } = request.body;
+    const { message, sessionId, productId, productSlug } = request.body;
 
     if (!process.env.ANTHROPIC_API_KEY) {
         console.error("[assistant] ANTHROPIC_API_KEY non configurato");
@@ -26,7 +96,30 @@ async function assistant(request, response) {
 
     try {
         console.log("[assistant] Inizio elaborazione con prompt:", message, "sessionId:", usedSessionId);
-        const result = await askAnthropic(message.trim(), usedSessionId);
+        const normalizedProductId = Number(productId);
+        const hasValidProductId = Number.isInteger(normalizedProductId) && normalizedProductId > 0;
+        const normalizedProductSlug = typeof productSlug === "string" ? productSlug.trim() : "";
+        const inferredProductSlug = !hasValidProductId && !normalizedProductSlug
+            ? extractProductSlugFromSessionId(usedSessionId)
+            : "";
+        const effectiveProductSlug = normalizedProductSlug || inferredProductSlug;
+
+        const productContext = await getProductContext({
+            productId: hasValidProductId ? normalizedProductId : null,
+            productSlug: effectiveProductSlug || null
+        });
+
+        if ((hasValidProductId || effectiveProductSlug) && !productContext) {
+            return response.status(404).json({
+                error: "Prodotto non trovato",
+                result: null,
+                message: "Il prodotto passato nel contesto AI non esiste"
+            });
+        }
+
+        const result = await askAnthropic(message.trim(), usedSessionId, {
+            productContext
+        });
         console.log("[assistant] Risposta generata con successo");
 
         return response.json({

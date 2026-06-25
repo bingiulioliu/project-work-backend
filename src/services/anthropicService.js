@@ -7,10 +7,54 @@ let anthropicClient;
 let cachedSchemaSnapshot = "";
 let cachedAt = 0;
 const conversationHistory = new Map(); // Map<sessionId, Array<{user, assistant}>>
+const sessionProductContext = new Map(); // Map<sessionId, productContext>
 
 const SCHEMA_CACHE_TTL_MS = 60 * 1000;
 const MAX_HISTORY_PER_SESSION = 10;
-const DB_ONLY_REFUSAL = "Posso rispondere a domande relative s json quest";
+const DB_ONLY_REFUSAL = "Posso rispondere a domande relative a json quest";
+
+function isLikelyCatalogQuestion(prompt) {
+    const lowerPrompt = String(prompt || "").toLowerCase();
+    const catalogKeywords = [
+        "prodotto",
+        "prodotti",
+        "catalogo",
+        "prezzo",
+        "costo",
+        "rar",
+        "categoria",
+        "carrello",
+        "ordine",
+        "acquisto",
+        "spedizione",
+        "disponibile",
+        "questo",
+        "questo prodotto"
+    ];
+
+    return catalogKeywords.some((keyword) => lowerPrompt.includes(keyword));
+}
+
+function buildProductContextText(productContext) {
+    if (!productContext) {
+        return "";
+    }
+
+    const categories = Array.isArray(productContext.categories)
+        ? productContext.categories.map((category) => category.name).filter(Boolean)
+        : [];
+
+    return [
+        `id: ${productContext.id}`,
+        `name: ${productContext.name || ""}`,
+        `slug: ${productContext.slug || ""}`,
+        `price: ${productContext.price ?? ""}`,
+        `rarity: ${productContext.rarity || ""}`,
+        `image: ${productContext.image || ""}`,
+        `description: ${productContext.description || ""}`,
+        `categories: ${categories.join(", ")}`
+    ].join("\n");
+}
 
 function isPersonalQuestion(prompt) {
     const lower = prompt.toLowerCase();
@@ -234,6 +278,21 @@ function addToHistory(sessionId, userMessage, assistantResponse) {
     console.log(`[addToHistory] Storico aggiornato per ${sessionId}. Totale conversazioni: ${history.length}`);
 }
 
+function getSessionProductContext(sessionId) {
+    if (!sessionProductContext.has(sessionId)) {
+        return null;
+    }
+    return sessionProductContext.get(sessionId);
+}
+
+function setSessionProductContext(sessionId, productContext) {
+    if (!sessionId || !productContext) {
+        return;
+    }
+
+    sessionProductContext.set(sessionId, productContext);
+}
+
 function buildHistoryContext(history) {
     if (!history || history.length === 0) {
         return "";
@@ -251,6 +310,17 @@ async function buildPersonalAnswer(model, prompt, historyContext = "") {
     ]);
 
     console.log("[buildPersonalAnswer] Risposta generata");
+    return parseResponseContent(response.content);
+}
+
+async function buildProductScopedAnswer(model, prompt, productContext, historyContext = "") {
+    const productContextText = buildProductContextText(productContext);
+
+    const response = await model.invoke([
+        new SystemMessage("Sei un assistente ecommerce in italiano. Devi rispondere usando soltanto il contesto del prodotto corrente. Se l'utente chiede altro, spiega che puoi aiutare solo su questo prodotto e invita a fare una domanda pertinente."),
+        new HumanMessage(`Prodotto corrente:\n${productContextText}${historyContext}\n\nDomanda utente:\n${prompt}`)
+    ]);
+
     return parseResponseContent(response.content);
 }
 
@@ -292,9 +362,15 @@ function parseResponseContent(content) {
     return "";
 }
 
-async function askAnthropic(prompt, sessionId = "default") {
+async function askAnthropic(prompt, sessionId = "default", options = {}) {
     try {
         console.log("[askAnthropic] Inizio con prompt:", prompt, "sessionId:", sessionId);
+        const inputProductContext = options?.productContext || null;
+        const productContext = inputProductContext || getSessionProductContext(sessionId);
+
+        if (inputProductContext) {
+            setSessionProductContext(sessionId, inputProductContext);
+        }
     
         const model = getAnthropicClient();
         console.log("[askAnthropic] Client creato");
@@ -306,6 +382,14 @@ async function askAnthropic(prompt, sessionId = "default") {
         const history = getSessionHistory(sessionId);
         const historyContext = buildHistoryContext(history);
         console.log("[askAnthropic] Storico recuperato:", history.length, "conversazioni");
+
+        // Se c'e' il contesto del prodotto aperto, la risposta viene confinata a quel prodotto.
+        if (productContext) {
+            console.log("[askAnthropic] Modalita prodotto singolo attiva per:", productContext.slug || productContext.id);
+            const productAnswer = await buildProductScopedAnswer(model, prompt, productContext, historyContext);
+            addToHistory(sessionId, prompt, productAnswer);
+            return productAnswer;
+        }
     
         const plan = await generateQueryPlan(model, prompt, schemaContext);
         console.log("[askAnthropic] Piano generato:", plan);
@@ -319,8 +403,20 @@ async function askAnthropic(prompt, sessionId = "default") {
         }
     
         if (!plan.isDatabaseQuestion) {
-            console.log("[askAnthropic] Non è una domanda DB, rifiuto");
-            return DB_ONLY_REFUSAL;
+            const shouldFallbackToDb = isLikelyCatalogQuestion(prompt);
+
+            if (!shouldFallbackToDb) {
+                console.log("[askAnthropic] Non e' una domanda DB, rifiuto");
+                return DB_ONLY_REFUSAL;
+            }
+
+            console.log("[askAnthropic] Piano non DB ma domanda compatibile con catalogo, uso fallback query");
+            const fallbackSql = ensureSafeSelectQuery(buildFallbackQuery(prompt));
+            const [fallbackRows] = await connection.query(fallbackSql);
+            const parsedFallbackRows = QueryRowsSchema.parse(fallbackRows);
+            const fallbackAnswer = await buildFinalAnswer(model, prompt, fallbackSql, parsedFallbackRows, historyContext);
+            addToHistory(sessionId, prompt, fallbackAnswer);
+            return fallbackAnswer;
         }
     
         // Determina quale query eseguire
