@@ -12,7 +12,7 @@ async function index(request, response) {
         min_price,
         max_price,
         page = 1,
-        limit = 10
+        limit = 12
     } = request.query;
 
     const currentPage = Math.max(Number(page), 1);
@@ -490,7 +490,7 @@ async function suggested(request, response) {
                 select category_id from category_product where product_id = ?)
             and p.id != ?
             order by rand()
-            limit 10
+            limit 12
         `;
 
         const [suggested] = await connection.execute(querySuggested, [productId, productId]);
