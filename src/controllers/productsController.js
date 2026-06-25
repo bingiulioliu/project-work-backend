@@ -37,7 +37,7 @@ async function index(request, response) {
         const validRarities = ["common", "rare", "legendary"];
         const invalidRarities = requestedRarities.filter(r => !validRarities.includes(r));
 
-        if (!validRarities.includes(rarity)) {
+        if (invalidRarities.length > 0) {
             return response.status(400).json({
                 error: "Rarità non valida",
                 results: null
