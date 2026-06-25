@@ -163,7 +163,7 @@ Grazie per aver scelto JSON's Quest.
                         </p>
 
                         <img
-                            src="http://localhost:3000/images/working-goblins.png"
+                            src="https://raw.githubusercontent.com/bingiulioliu/project-work-backend/refs/heads/master/public/img/working-goblins.png"
                             alt="I goblin dell'officina al lavoro"
                             width="400"
                             style="max-width: 100%; height: auto; border-radius: 4px; display: block; margin: 0 auto;"
