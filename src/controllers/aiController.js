@@ -1,6 +1,17 @@
 import { askAnthropic } from "../services/anthropicService.js";
 import connection from "../db/connections/connection.js";
 
+const AI_PRESET_QUESTIONS = [
+    "che prodotti vendi?",
+    "parlami di json's quest",
+    "quali categorie ci sono",
+    "cosa fa il bastone tra le ruote"
+];
+
+function getAiPresetQuestions() {
+    return [...AI_PRESET_QUESTIONS];
+}
+
 function extractProductSlugFromSessionId(sessionId) {
     if (!sessionId || typeof sessionId !== "string") {
         return "";
@@ -124,7 +135,8 @@ async function assistant(request, response) {
 
         return response.json({
             error: null,
-            result
+            result,
+            presetQuestions: getAiPresetQuestions()
         });
     } catch (error) {
         console.error("[assistant] Errore durante askAnthropic:", error.message);
@@ -139,4 +151,11 @@ async function assistant(request, response) {
     }
 }
 
-export { assistant };
+async function assistantPresetQuestions(request, response) {
+    return response.json({
+        error: null,
+        result: getAiPresetQuestions()
+    });
+}
+
+export { assistant, assistantPresetQuestions };
