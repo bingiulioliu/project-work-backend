@@ -29,10 +29,29 @@ function isLikelyCatalogQuestion(prompt) {
         "spedizione",
         "disponibile",
         "questo",
-        "questo prodotto"
+        "questo prodotto",
+        "json's quest",
+        "json s quest",
+        "bastone tra le ruote"
     ];
 
+    const catalogPatterns = [
+        /\bparlami\b.*\b(di|del|della|dello|dei|delle|su)\b/i,
+        /\bcosa\s+fa\b/i,
+        /\bche\s+prodotti\s+vendi\b/i,
+        /\bquali\s+categorie\s+ci\s+sono\b/i
+    ];
+
+    if (catalogPatterns.some((pattern) => pattern.test(lowerPrompt))) {
+        return true;
+    }
+
     return catalogKeywords.some((keyword) => lowerPrompt.includes(keyword));
+}
+
+function isStorePresentationQuestion(prompt) {
+    const lowerPrompt = String(prompt || "").toLowerCase();
+    return lowerPrompt.includes("parlami di json's quest") || lowerPrompt.includes("parlami di json s quest");
 }
 
 function buildProductContextText(productContext) {
@@ -188,6 +207,10 @@ function normalizeSql(sql) {
 
 function buildFallbackQuery(prompt) {
     const lowerPrompt = prompt.toLowerCase();
+    if (lowerPrompt.includes("bastone tra le ruote")) {
+        return "SELECT id, name, slug, price, rarity, image, description FROM products WHERE name LIKE '%bastone tra le ruote%' OR description LIKE '%bastone tra le ruote%' LIMIT 5";
+    }
+
     if (lowerPrompt.includes("ordine") || lowerPrompt.includes("acquist")) {
         return "SELECT * FROM orders LIMIT 25";
     } else if (lowerPrompt.includes("categor")) {
@@ -382,6 +405,12 @@ async function askAnthropic(prompt, sessionId = "default", options = {}) {
         const history = getSessionHistory(sessionId);
         const historyContext = buildHistoryContext(history);
         console.log("[askAnthropic] Storico recuperato:", history.length, "conversazioni");
+
+        if (isStorePresentationQuestion(prompt)) {
+            const storeAnswer = "JSON's Quest e' uno shop fantasy per avventurieri del quotidiano: trovi articoli utili reinterpretati come artefatti, con tono ironico da RPG e checkout semplice. Se vuoi, posso anche consigliarti subito i prodotti migliori in base a quello che cerchi.";
+            addToHistory(sessionId, prompt, storeAnswer);
+            return storeAnswer;
+        }
 
         // Se c'e' il contesto del prodotto aperto, la risposta viene confinata a quel prodotto.
         if (productContext) {
