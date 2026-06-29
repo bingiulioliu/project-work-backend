@@ -416,7 +416,7 @@ async function getTopProducts(orderByClause){
         select name, slug, price, rarity, image
         from products
         order by ${orderByClause}
-        limit 8
+        limit 6
     `;
 
     const [rows] = await connection.execute(query);
