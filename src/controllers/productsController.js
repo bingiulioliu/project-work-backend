@@ -144,7 +144,7 @@ async function show(request, response) {
     const { slug } = request.params;
 
     try {
-        const product = findOrNotFound(
+        const product = await findOrNotFound(
             connection,
             `select id, name, slug, description, price, rarity, image
                 from products p

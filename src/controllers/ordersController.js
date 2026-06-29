@@ -3,6 +3,9 @@ import {
     sendOrderConfirmationEmail,
     sendOrderNotificationEmail,
 } from "../services/emailService.js";
+import { findOrNotFound } from "../utils/findOrNotFound.js";
+import { hasRequiredCustomerFields, isNotEmptyCart, findInvalidCartItem } from "../utils/validateOrders.js";
+
 
 async function index(request, response) {
 
@@ -148,14 +151,7 @@ async function create(request, response) {
         notes,
         products } = request.body;
 
-    if (
-        !customer_name ||
-        !customer_address ||
-        !customer_city ||
-        !customer_postal_code ||
-        !telephone_number ||
-        !mail
-    ) {
+    if (!hasRequiredCustomerFields(request.body)) {
         return response.status(400).json({
             error: 'Dati cliente mancanti',
             results: null,
@@ -163,22 +159,7 @@ async function create(request, response) {
         });
     }
 
-    const query = `
-        insert into orders (
-            order_number,
-            customer_name,
-            customer_address,
-            customer_city,
-            mail,
-            customer_postal_code,
-            notes,
-            telephone_number,
-            created_at,
-            updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, now(), now())
-    `;
-
-    if (!products || !Array.isArray(products) || products.length === 0) {
+    if (!isNotEmptyCart(products)) {
         return response.status(400).json({
             error: "Carrello vuoto",
             results: null,
@@ -186,10 +167,9 @@ async function create(request, response) {
         });
     }
 
-    const invalidProduct = products.find((product) => {
-        return !product.product_id || !product.quantity || Number(product.quantity) <= 0;
-    });
+    const invalidProduct = findInvalidCartItem(products);
 
+    
     if (invalidProduct) {
         return response.status(400).json({
             error: "Prodotti non validi",
@@ -198,11 +178,8 @@ async function create(request, response) {
         });
     }
 
-    const dbConnection = connection;
-
-
     try {
-        await dbConnection.beginTransaction();
+        await connection.beginTransaction();
 
         const productIds = products.map((product) => Number(product.product_id));
         const placeholders = productIds.map(() => "?").join(", ");
@@ -213,10 +190,10 @@ async function create(request, response) {
             WHERE id IN (${placeholders})
         `;
 
-        const [dbProducts] = await dbConnection.query(queryProducts, productIds);
+        const [dbProducts] = await connection.query(queryProducts, productIds);
 
         if (dbProducts.length !== productIds.length) {
-            await dbConnection.rollback();
+            await connection.rollback();
 
             return response.status(404).json({
                 error: "Prodotto non trovato",
@@ -244,7 +221,7 @@ async function create(request, response) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `;
 
-        const [orderResult] = await dbConnection.execute(queryOrder, [
+        const [orderResult] = await connection.execute(queryOrder, [
             orderNumber,
             customer_name,
             customer_address,
@@ -279,7 +256,7 @@ async function create(request, response) {
             const unitPrice = Number(productInfo.price);
             const lineTotal = quantity * unitPrice;
 
-            await dbConnection.execute(queryOrderProduct, [
+            await connection.execute(queryOrderProduct, [
                 orderId,
                 productInfo.id,
                 quantity,
@@ -299,7 +276,7 @@ async function create(request, response) {
             total += lineTotal;
         }
 
-        await dbConnection.commit();
+        await connection.commit();
 
         const createdOrder = {
             id: orderId,
@@ -342,7 +319,7 @@ async function create(request, response) {
         });
 
     } catch (error) {
-        await dbConnection.rollback();
+        await connection.rollback();
 
         console.error(error);
 
