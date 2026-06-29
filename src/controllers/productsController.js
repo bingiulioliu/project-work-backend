@@ -1,7 +1,7 @@
 import { error } from "console";
 import connection from "../db/connections/connection.js";
 import { slugify } from "../utils/slugify.js";
-import { isValidPrice, isValidRarity, isValidNameLength, isValidDescriptionLength, MIN_NAME_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH } from "../utils/validations.js";
+import { isValidPrice, isValidRarity, isValidNameLength, isValidDescriptionLength, MIN_NAME_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH } from "../utils/validateProducts.js";
 import { findOrNotFound } from "../utils/findOrNotFound.js";
 
 async function index(request, response) {
@@ -416,7 +416,7 @@ async function getTopProducts(orderByClause){
         select name, slug, price, rarity, image
         from products
         order by ${orderByClause}
-        limit 5
+        limit 8
     `;
 
     const [rows] = await connection.execute(query);
