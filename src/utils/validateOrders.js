@@ -15,10 +15,8 @@ export function hasRequiredCustomerFields(body){
 export function isNotEmptyCart(products){
     return Array.isArray(products) && products.length > 0;
 };
-/*
+
 export function findInvalidCartItem(products){
     return products.find((product) =>
-    !product.)
+    !product.id || !product.quantity || Number(product.quantity) <= 0);
 }
-
-*/

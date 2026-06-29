@@ -3,6 +3,9 @@ import {
     sendOrderConfirmationEmail,
     sendOrderNotificationEmail,
 } from "../services/emailService.js";
+import { findOrNotFound } from "../utils/findOrNotFound.js";
+import { hasRequiredCustomerFields, isNotEmptyCart, findInvalidCartItem } from "../utils/validateOrders.js";
+
 
 async function index(request, response) {
 
