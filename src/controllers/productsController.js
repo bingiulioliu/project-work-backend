@@ -1,6 +1,8 @@
 import { error } from "console";
 import connection from "../db/connections/connection.js";
 import { slugify } from "../utils/slugify.js";
+import { isValidPrice, isValidRarities, isValidNameLength, isValidDescriptionLength, MIN_NAME_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH } from "../utils/validations.js";
+
 
 async function index(request, response) {
     const {
