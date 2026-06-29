@@ -194,21 +194,28 @@ async function create(request, response) {
             message: 'Inserire nome, prezzo e rarità'
         });
     }
-    if (price <= 0 || isNaN(price)) {
+    if (!isValidPrice(price)) {
         return response.status(400).json({
             success: false,
             message: 'Inserire un prezzo valido'
         });
     }
 
-    if (name.length > 50 || description.length > 750) {
+    if (!isValidNameLength(name)) {
         return response.status(400).json({
             success: false,
-            message: 'Nome o descrizione troppo lunghi'
+            message: `Il nome deve essere tra ${MIN_NAME_LENGTH} e ${MAX_NAME_LENGTH} caratteri`
         });
     }
 
-    if (rarity != 'common' && rarity != 'rare' && rarity != 'legendary') {
+    if (!isValidDescriptionLength(description)) {
+        return response.status(400).json({
+            success: false,
+            message: `La descrizione non può superare ${MAX_DESCRIPTION_LENGTH} caratteri`
+        });
+    }
+
+    if (!isValidRarity(rarity)) {
         return response.status(400).json({
             success: false,
             message: 'La rarità deve esse common, rare o legendary'
