@@ -207,6 +207,10 @@ function normalizeSql(sql) {
 
 function buildFallbackQuery(prompt) {
     const lowerPrompt = prompt.toLowerCase();
+    if (isStorePresentationQuestion(prompt)) {
+        return "SELECT (SELECT COUNT(*) FROM products) AS total_products, (SELECT COUNT(*) FROM categories) AS total_categories, (SELECT MIN(price) FROM products) AS min_price, (SELECT MAX(price) FROM products) AS max_price, (SELECT ROUND(AVG(price), 2) FROM products) AS avg_price LIMIT 1";
+    }
+
     if (lowerPrompt.includes("bastone tra le ruote")) {
         return "SELECT id, name, slug, price, rarity, image, description FROM products WHERE name LIKE '%bastone tra le ruote%' OR description LIKE '%bastone tra le ruote%' LIMIT 5";
     }
@@ -389,6 +393,7 @@ async function askAnthropic(prompt, sessionId = "default", options = {}) {
     try {
         console.log("[askAnthropic] Inizio con prompt:", prompt, "sessionId:", sessionId);
         const inputProductContext = options?.productContext || null;
+        const forceDatabaseResponse = Boolean(options?.forceDatabaseResponse);
         const productContext = inputProductContext || getSessionProductContext(sessionId);
 
         if (inputProductContext) {
@@ -406,14 +411,14 @@ async function askAnthropic(prompt, sessionId = "default", options = {}) {
         const historyContext = buildHistoryContext(history);
         console.log("[askAnthropic] Storico recuperato:", history.length, "conversazioni");
 
-        if (isStorePresentationQuestion(prompt)) {
+        if (!forceDatabaseResponse && isStorePresentationQuestion(prompt)) {
             const storeAnswer = "JSON's Quest e' uno shop fantasy per avventurieri del quotidiano: trovi articoli utili reinterpretati come artefatti, con tono ironico da RPG e checkout semplice. Se vuoi, posso anche consigliarti subito i prodotti migliori in base a quello che cerchi.";
             addToHistory(sessionId, prompt, storeAnswer);
             return storeAnswer;
         }
 
         // Se c'e' il contesto del prodotto aperto, la risposta viene confinata a quel prodotto.
-        if (productContext) {
+        if (!forceDatabaseResponse && productContext) {
             console.log("[askAnthropic] Modalita prodotto singolo attiva per:", productContext.slug || productContext.id);
             const productAnswer = await buildProductScopedAnswer(model, prompt, productContext, historyContext);
             addToHistory(sessionId, prompt, productAnswer);
@@ -424,7 +429,7 @@ async function askAnthropic(prompt, sessionId = "default", options = {}) {
         console.log("[askAnthropic] Piano generato:", plan);
     
         // Controlla se è una domanda personale/conversazionale
-        if (isPersonalQuestion(prompt)) {
+        if (!forceDatabaseResponse && isPersonalQuestion(prompt)) {
             console.log("[askAnthropic] È una domanda personale, rispondo direttamente");
             const answer = await buildPersonalAnswer(model, prompt, historyContext);
             addToHistory(sessionId, prompt, answer);
@@ -432,7 +437,7 @@ async function askAnthropic(prompt, sessionId = "default", options = {}) {
         }
     
         if (!plan.isDatabaseQuestion) {
-            const shouldFallbackToDb = isLikelyCatalogQuestion(prompt);
+            const shouldFallbackToDb = forceDatabaseResponse || isLikelyCatalogQuestion(prompt);
 
             if (!shouldFallbackToDb) {
                 console.log("[askAnthropic] Non e' una domanda DB, rifiuto");

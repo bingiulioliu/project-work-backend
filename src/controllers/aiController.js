@@ -8,6 +8,18 @@ const AI_PRESET_QUESTIONS = [
     "cosa fa il bastone tra le ruote"
 ];
 
+function normalizeQuestion(question) {
+    return String(question || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+}
+
+function isPresetQuestion(message) {
+    const normalizedMessage = normalizeQuestion(message);
+    return AI_PRESET_QUESTIONS.some((question) => normalizeQuestion(question) === normalizedMessage);
+}
+
 function getAiPresetQuestions() {
     return [...AI_PRESET_QUESTIONS];
 }
@@ -129,7 +141,8 @@ async function assistant(request, response) {
         }
 
         const result = await askAnthropic(message.trim(), usedSessionId, {
-            productContext
+            productContext,
+            forceDatabaseResponse: isPresetQuestion(message)
         });
         console.log("[assistant] Risposta generata con successo");
 
