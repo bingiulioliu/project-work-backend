@@ -1,6 +1,6 @@
 // rarità
 export const VALID_RARITIES = ['common', 'rare', 'legendary'];
-export function isValidRarities(rarity) {
+export function isValidRarity(rarity) {
     return VALID_RARITIES.includes(rarity);
     
 };
