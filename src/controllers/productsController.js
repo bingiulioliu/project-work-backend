@@ -1,6 +1,8 @@
 import { error } from "console";
 import connection from "../db/connections/connection.js";
 import { slugify } from "../utils/slugify.js";
+import { isValidPrice, isValidRarity, isValidNameLength, isValidDescriptionLength, MIN_NAME_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH } from "../utils/validateProducts.js";
+import { findOrNotFound } from "../utils/findOrNotFound.js";
 
 async function index(request, response) {
     const {
@@ -34,8 +36,7 @@ async function index(request, response) {
 
     if (rarity) {
         const requestedRarities = rarity.split(',').map(r => r.trim()).filter(Boolean);
-        const validRarities = ["common", "rare", "legendary"];
-        const invalidRarities = requestedRarities.filter(r => !validRarities.includes(r));
+        const invalidRarities = requestedRarities.filter(r => !isValidRarity(r));
 
         if (invalidRarities.length > 0) {
             return response.status(400).json({
@@ -142,25 +143,17 @@ async function index(request, response) {
 async function show(request, response) {
     const { slug } = request.params;
 
-    const query = `
-        select id, name, slug, description, price, rarity, image
-        from products p
-        where p.slug = ?
-    `;
-
     try {
-        const [rows] = await connection.execute(query, [slug]);
-
-        // se array vuoto
-        if (rows.length === 0) {
-            return response.status(404).json({
-                error: 'Prodotto non trovato',
-                results: null
-            });
-        }
-
-        // se il prodotto esiste
-        const product = rows[0];
+        const product = findOrNotFound(
+            connection,
+            `select id, name, slug, description, price, rarity, image
+                from products p
+                where p.slug = ?`,
+            [slug],
+            response,
+            'Prodotto non trovato'
+        );
+        if (!product) return;
 
         // query per le categorie
         const queryCategories = `
@@ -191,38 +184,6 @@ async function show(request, response) {
     }
 };
 
-async function rarest(request, response) {
-    const query = `
-        SELECT name, slug, price, rarity, image
-        FROM products
-        ORDER BY 
-            CASE rarity
-                WHEN 'legendary' THEN 3
-                WHEN 'rare' THEN 2
-                WHEN 'common' THEN 1
-                ELSE 0
-            END DESC
-        LIMIT 5
-    `;
-
-    try {
-        const [rows] = await connection.query(query);
-
-        response.json({
-            error: null,
-            results: rows
-        });
-
-    } catch (error) {
-        console.error(error);
-
-        response.status(500).json({
-            error: "Internal Server Error",
-            message: "Errore durante il recupero dei prodotti più rari",
-        });
-    }
-};
-
 async function create(request, response) {
 
     const { name, description, price, rarity } = request.body;
@@ -233,21 +194,28 @@ async function create(request, response) {
             message: 'Inserire nome, prezzo e rarità'
         });
     }
-    if (price <= 0 || isNaN(price)) {
+    if (!isValidPrice(price)) {
         return response.status(400).json({
             success: false,
             message: 'Inserire un prezzo valido'
         });
     }
 
-    if (name.length > 50 || description.length > 750) {
+    if (!isValidNameLength(name)) {
         return response.status(400).json({
             success: false,
-            message: 'Nome o descrizione troppo lunghi'
+            message: `Il nome deve essere tra ${MIN_NAME_LENGTH} e ${MAX_NAME_LENGTH} caratteri`
         });
     }
 
-    if (rarity != 'common' && rarity != 'rare' && rarity != 'legendary') {
+    if (!isValidDescriptionLength(description)) {
+        return response.status(400).json({
+            success: false,
+            message: `La descrizione non può superare ${MAX_DESCRIPTION_LENGTH} caratteri`
+        });
+    }
+
+    if (!isValidRarity(rarity)) {
         return response.status(400).json({
             success: false,
             message: 'La rarità deve esse common, rare o legendary'
@@ -441,22 +409,53 @@ async function destroy(request, response) {
     }
 };
 
-async function cheapest(request, response) {
+// rarest e cheapest hanno lo stesso schema di query, qui estraggo la parte comune
+// orderByClause cambia la orderby a seconda delle esigenze
+async function getTopProducts(orderByClause){
     const query = `
-        SELECT name, slug, price, rarity, image
-        FROM products
-        ORDER BY price ASC
-        LIMIT 5
+        select name, slug, price, rarity, image
+        from products
+        order by ${orderByClause}
+        limit 8
     `;
 
+    const [rows] = await connection.execute(query);
+    return rows;
+};
+
+async function rarest(request, response) {
     try {
-        const [rows] = await connection.query(query);
+        const rows = await getTopProducts(`
+            CASE rarity
+                WHEN 'legendary' THEN 3
+                WHEN 'rare' THEN 2
+                WHEN 'common' THEN 1
+                ELSE 0
+            END DESC
+        `);
 
         response.json({
             error: null,
             results: rows
         });
 
+    } catch (error) {
+        console.error(error);
+
+        response.status(500).json({
+            error: "Internal Server Error",
+            message: "Errore durante il recupero dei prodotti più rari",
+        });
+    }
+};
+
+async function cheapest(request, response) {
+    try {
+        const rows = await getTopProducts('price asc');
+        response.json({
+            error: null,
+            results: rows
+        });
     } catch (error) {
         console.error(error);
         response.status(500).json({
