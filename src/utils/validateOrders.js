@@ -9,7 +9,7 @@ const REQUIRED_CUSTOMER_FIELDS = [
 ];
 
 export function hasRequiredCustomerFields(body){
-    return REQUIRED_CUSTOMER_FIELDS.every((field) => Boolean(body(field)));
+    return REQUIRED_CUSTOMER_FIELDS.every((field) => Boolean(body[field]));
 };
 
 export function isNotEmptyCart(products){
@@ -18,5 +18,5 @@ export function isNotEmptyCart(products){
 
 export function findInvalidCartItem(products){
     return products.find((product) =>
-    !product.id || !product.quantity || Number(product.quantity) <= 0);
+    !product.product_id || !product.quantity || Number(product.quantity) <= 0);
 }
