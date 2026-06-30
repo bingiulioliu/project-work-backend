@@ -431,7 +431,7 @@ async function rarest(request, response) {
                 WHEN 'rare' THEN 2
                 WHEN 'common' THEN 1
                 ELSE 0
-            END DESC
+            END DESC, price DESC
         `);
 
         response.json({
