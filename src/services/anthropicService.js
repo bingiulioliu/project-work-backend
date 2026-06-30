@@ -13,6 +13,138 @@ const SCHEMA_CACHE_TTL_MS = 60 * 1000;
 const MAX_HISTORY_PER_SESSION = 10;
 const DB_ONLY_REFUSAL = "Posso rispondere a domande relative a json quest";
 
+function normalizePresetPrompt(prompt) {
+    return String(prompt || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[’'`]/g, " ")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function getPresetIntent(prompt) {
+    const normalizedPrompt = normalizePresetPrompt(prompt);
+
+    if (/\bche prodotti vendi\b/i.test(normalizedPrompt) || /\ba che prodotti vendi\b/i.test(normalizedPrompt)) {
+        return "products";
+    }
+
+    if (/\bparlami di json s quest\b/i.test(normalizedPrompt) || /\bparlami di json quest\b/i.test(normalizedPrompt)) {
+        return "about_store";
+    }
+
+    if (/\bquali categorie ci sono\b/i.test(normalizedPrompt)) {
+        return "categories";
+    }
+
+    if (/\bcosa fa il bastone tra le ruote\b/i.test(normalizedPrompt)) {
+        return "bastone";
+    }
+
+    return null;
+}
+
+async function buildPresetProductsAnswer() {
+    const [rows] = await connection.query(
+        "SELECT name, slug FROM products ORDER BY name ASC LIMIT 50"
+    );
+
+    if (!rows.length) {
+        return "🛍️ Al momento non ci sono prodotti disponibili nel catalogo. Torna presto per nuove reliquie!";
+    }
+
+    const lines = rows.map((product, index) => `${index + 1}. ${product.name}`);
+
+    return [
+        "🛒 **Emporio di JSON's Quest**",
+        `Ecco i prodotti disponibili (${rows.length}):`,
+        "",
+        ...lines,
+        "",
+        "✨ Se vuoi, posso consigliarti anche i migliori per rarita' o prezzo."
+    ].join("\n");
+}
+
+async function buildPresetCategoriesAnswer() {
+    const [rows] = await connection.query(
+        "SELECT name, slug FROM categories ORDER BY name ASC"
+    );
+
+    if (!rows.length) {
+        return "📚 Al momento non risultano categorie disponibili nel grimorio del catalogo.";
+    }
+
+    const lines = rows.map((category, index) => `${index + 1}. ${category.name}`);
+
+    return [
+        "🧭 **Categorie di JSON's Quest**",
+        `Queste sono le categorie disponibili (${rows.length}):`,
+        "",
+        ...lines,
+        "",
+        "🔎 Dimmi una categoria e ti aiuto a trovare l'artefatto perfetto."
+    ].join("\n");
+}
+
+async function buildPresetBastoneAnswer() {
+    const [rows] = await connection.query(
+        `
+            SELECT id, name, slug, price, rarity, description
+            FROM products
+            WHERE slug = 'bastone-tra-le-ruote'
+               OR name LIKE '%bastone tra le ruote%'
+            ORDER BY id ASC
+            LIMIT 1
+        `
+    );
+
+    if (!rows.length) {
+        return "🪵 Il prodotto Bastone tra le Ruote non e' disponibile in questo momento.";
+    }
+
+    const product = rows[0];
+    return [
+        "🪄 **Scheda Artefatto: Bastone tra le Ruote**",
+        `${product.name}: e' un artefatto pensato per sabotare con stile i piani degli avversari.`,
+        "",
+        "🎭 Effetto narrativo:",
+        "Nel mondo di JSON's Quest e' un bastone caotico che trasforma un'azione perfetta in una comica deviazione.",
+        "",
+        `⭐ Rarita': ${product.rarity}`,
+        `💰 Prezzo: ${product.price} monete`,
+        `📝 Dettagli: ${product.description || "Descrizione non disponibile."}`
+    ].join("\n");
+}
+
+async function buildPresetAnswer(intent) {
+    if (intent === "products") {
+        return buildPresetProductsAnswer();
+    }
+
+    if (intent === "about_store") {
+        return [
+            "🏰 **Parlami di JSON's Quest**",
+            "JSON's Quest e' un'esistenza mercantile a meta' tra taverna e server room: vende prodotti fantasy nel mondo reale, come se ogni ordine fosse una missione.",
+            "",
+            "🧪 Qui trovi artefatti improbabili, equipaggiamento quotidiano con lore epica e reliquie nate da storie inventate dai viandanti del negozio.",
+            "📜 Ogni prodotto ha una leggenda: compri un oggetto, ma ti porti a casa anche un pezzo di avventura.",
+            "✨ In pratica: un emporio fantasy dove la realta' ha il gusto di una quest." 
+        ].join("\n");
+    }
+
+    if (intent === "categories") {
+        return buildPresetCategoriesAnswer();
+    }
+
+    if (intent === "bastone") {
+        return buildPresetBastoneAnswer();
+    }
+
+    return "Posso aiutarti con prodotti, categorie e informazioni sul catalogo JSON's Quest.";
+}
+
 function isLikelyCatalogQuestion(prompt) {
     const lowerPrompt = String(prompt || "").toLowerCase();
     const catalogKeywords = [
@@ -395,9 +527,17 @@ async function askAnthropic(prompt, sessionId = "default", options = {}) {
         const inputProductContext = options?.productContext || null;
         const forceDatabaseResponse = Boolean(options?.forceDatabaseResponse);
         const productContext = inputProductContext || getSessionProductContext(sessionId);
+        const presetIntent = getPresetIntent(prompt);
 
         if (inputProductContext) {
             setSessionProductContext(sessionId, inputProductContext);
+        }
+
+        if (presetIntent) {
+            console.log("[askAnthropic] Domanda preset intercettata:", presetIntent);
+            const presetAnswer = await buildPresetAnswer(presetIntent);
+            addToHistory(sessionId, prompt, presetAnswer);
+            return presetAnswer;
         }
     
         const model = getAnthropicClient();
