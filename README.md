@@ -1,125 +1,76 @@
-# Project Work Backend
+# JSON's Quest — Backend
 
-Backend RESTful per una piattaforma e-commerce con funzionalità di newsletter e integrazione AI (Anthropic Claude), sviluppato in Node.js secondo un'architettura **MVC a livelli** (Router → Controller → Service → Database).
-
----
-
-## 📐 Architettura
-
-Il progetto segue una separazione netta delle responsabilità, organizzata in layer indipendenti e testabili:
-
-```
-┌─────────────┐      ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-│   Router    │ ───▶ │ Middleware  │ ───▶ │ Controller  │ ───▶ │   Service   │
-│ (endpoints) │      │ (auth/val.) │      │ (I/O HTTP)  │      │ (business)  │
-└─────────────┘      └─────────────┘      └─────────────┘      └──────┬──────┘
-                                                                       │
-                                                                       ▼
-                                                                ┌─────────────┐
-                                                                │  Database   │
-                                                                │ (connessioni│
-                                                                │ /migrations)│
-                                                                └─────────────┘
-```
-
-- **Router**: definisce gli endpoint e collega ciascuna rotta al relativo controller.
-- **Controller**: gestisce request/response HTTP, delega la logica di business ai service.
-- **Service**: incapsula la logica applicativa e le integrazioni esterne (es. Anthropic AI, invio email).
-- **Utils**: funzioni di supporto trasversali (validazione, slugify, gestione errori "not found").
-- **DB**: connessioni al database, migrazioni e dump SQL per il provisioning dei dati.
+> API REST per **JSON's Quest**, l'e-commerce a tema fantasy/RPG. Espone i dati di prodotti, categorie e ordini, gestisce l'invio email e integra un assistente AI conversazionale. Consumato dal frontend React ([repo separata](../project-work-frontend)).
 
 ---
+
+## 📐 Stack tecnologico
+
+| Ambito | Tecnologia |
+|---|---|
+| Runtime | Node.js (ES Modules) |
+| Framework HTTP | [Express](https://expressjs.com/) 5 |
+| Database | MySQL ([`mysql2`](https://www.npmjs.com/package/mysql2)) |
+| AI | [LangChain](https://www.npmjs.com/package/langchain) + [`@langchain/anthropic`](https://www.npmjs.com/package/@langchain/anthropic) (Claude) |
+| Validazione | [Zod](https://www.npmjs.com/package/zod) |
+| Email | [Nodemailer](https://www.npmjs.com/package/nodemailer) |
+| CORS | [`cors`](https://www.npmjs.com/package/cors) |
+| Package manager | pnpm |
 
 ## 🗂️ Struttura del progetto
 
 ```
 project-work-backend/
 ├── src/
-│   ├── controllers/            # Logica di gestione delle richieste HTTP
-│   │   ├── aiController.js
-│   │   ├── categoriesController.js
-│   │   ├── newsletterController.js
-│   │   ├── ordersController.js
-│   │   └── productsController.js
-│   │
+│   ├── controllers/       # Logica di gestione delle richieste HTTP
 │   ├── db/
-│   │   ├── connections/        # Configurazione connessione al database
-│   │   ├── dumps/              # Dump SQL per popolamento/reset del DB
-│   │   │   ├── categories_dumps.sql
-│   │   │   ├── category_product_dumps.sql
-│   │   │   ├── order_product.sql
-│   │   │   ├── orders.sql
-│   │   │   └── products_dumps.sql
-│   │   └── migrations/         # Migrazioni dello schema del database
-│   │
-│   ├── middlewares/            # Middleware Express (auth, error handling, ecc.)
-│   │
-│   ├── routers/                # Definizione delle rotte REST
-│   │   ├── aiRouter.js
-│   │   ├── categoriesRouter.js
-│   │   ├── newsletterRouter.js
-│   │   ├── ordersRouter.js
-│   │   └── productsRouter.js
-│   │
-│   ├── services/                # Logica di business e integrazioni esterne
-│   │   ├── anthropicService.js  # Integrazione con le API Anthropic (Claude)
-│   │   └── emailService.js      # Invio email transazionali
-│   │
-│   └── utils/                   # Funzioni di utilità condivise
-│       ├── findOrNotFound.js
-│       ├── mailer.js
-│       ├── slugify.js
-│       ├── validateOrders.js
-│       └── validateProducts.js
-│
-├── server.js                    # Entry point dell'applicazione
+│   │   ├── connections/   # Configurazione connessione al database
+│   │   ├── dumps/         # Dump SQL per popolamento/reset del DB
+│   │   └── migrations/    # Migrazioni dello schema del database
+│   ├── middlewares/       # Middleware Express
+│   ├── routers/           # Definizione delle rotte REST
+│   ├── services/          # Logica di business e integrazioni esterne (AI, email)
+│   └── utils/              # Funzioni di utilità condivise
+├── server.js               # Entry point dell'applicazione
 ├── package.json
 ├── pnpm-lock.yaml
-├── .env.example                 # Template delle variabili d'ambiente
-└── .gitignore
+└── .env.example
 ```
 
----
-
-## 🧩 Moduli funzionali
-
-| Modulo | Descrizione |
-|---|---|
-| **Categories** | CRUD delle categorie di prodotto |
-| **Products** | CRUD dei prodotti, con validazione dedicata (`validateProducts.js`) |
-| **Orders** | Gestione ordini e relazione ordine-prodotto, con validazione dedicata (`validateOrders.js`) |
-| **Newsletter** | Iscrizione e invio comunicazioni via `emailService.js` / `mailer.js` |
-| **AI** | Endpoint che sfrutta `anthropicService.js` per funzionalità basate su Claude |
-
----
-
-## 🛠️ Stack tecnologico
-
-- **Runtime**: Node.js
-- **Package manager**: pnpm
-- **Database**: relazionale (SQL), con connessioni dedicate e migrazioni versionate
-- **AI Provider**: Anthropic API (Claude)
-- **Email**: servizio di invio email dedicato
-
----
-
-## 🚀 Getting Started
-
-### Prerequisiti
-- Node.js (versione LTS consigliata)
-- pnpm
-- Un'istanza del database relazionale configurato
-
-### Installazione
+## 🚀 Setup rapido
 
 ```bash
-# Clona la repository
-git clone <repo-url>
-cd project-work-backend
-
-# Installa le dipendenze
 pnpm install
-
-# Copia il file di esempio e configura le variabili d'ambiente
 cp .env.example .env
+pnpm start      # avvio standard
+pnpm watch      # avvio con hot-reload (node --watch)
 ```
+
+Il server usa `node --env-file=.env`, quindi **non serve `dotenv`**: le variabili in `.env` vengono caricate nativamente da Node.js all'avvio.
+
+## 🛣️ Rotte principali
+
+Montate in `server.js`:
+
+| Base path | Router |
+|---|---|
+| `/products` | `productsRouter` |
+| `/categories` | `categoriesRouter` |
+| `/orders` | `ordersRouter` |
+| `/ai` | `aiRouter` |
+| `/newsletter` | `newsletterRouter` |
+
+Elenco completo degli endpoint in [`docs/API.md`](docs/API.md).
+
+## 📚 Documentazione
+
+| Documento | Contenuto |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Pattern Router → Controller → Service, flusso richieste, integrazione col frontend |
+| [`docs/API.md`](docs/API.md) | Elenco completo degli endpoint REST |
+| [`docs/DATABASE.md`](docs/DATABASE.md) | Schema dati, tabelle e relazioni |
+| [`docs/AI-ASSISTANT.md`](docs/AI-ASSISTANT.md) | Funzionamento del chatbot AI (LangChain + Anthropic) |
+| [`docs/SETUP.md`](docs/SETUP.md) | Variabili ambiente e comandi in dettaglio |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Motivazioni delle principali scelte tecniche |
+
+---
