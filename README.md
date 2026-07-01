@@ -77,8 +77,8 @@ Elenco completo degli endpoint in [`docs/API.md`](docs/API.md).
 
 ## 👥 Team
 
-| Nome  | GitHub ||
-|---|---|---|
+| Nome  | GitHub |
+|---|---|
 | Alessia di Ruggero | [@rAel-Ael](https://github.com/rAel-Ael) |
 | Alessia Smeraglia | [@alessiaasmeraglia](https://github.com/alessiaasmeraglia) |
 | Bin Giulio Liu | [@bingiulioliu](https://github.com/bingiulioliu) |
