@@ -65,8 +65,8 @@ Che la fortuna guidi le tue prossime spedizioni.
 
 export async function sendOrderConfirmationEmail(orderData) {
     const productsList = orderData.products
-    .map(
-        (product) => `
+        .map(
+            (product) => `
             <tr>
                 <td style="padding: 10px 8px; border-bottom: 1px solid #d9c9a3; color: #3a2c1a; font-size: 14px; font-family: Georgia, serif;">
                     ${product.name}
@@ -79,8 +79,8 @@ export async function sendOrderConfirmationEmail(orderData) {
                 </td>
             </tr>
         `
-    )
-    .join("");
+        )
+        .join("");
 
     const mailOptions = {
         from: process.env.MAIL_FROM,
@@ -118,6 +118,16 @@ Grazie per aver scelto JSON's Quest.
                             <strong>Numero ordine:</strong> ${orderData.order_number}
                         </p>
                     </div>
+
+                    <h2 style="color: #5a3e1b; font-size: 18px; margin: 24px 0 12px; border-bottom: 2px solid #c9a86a; padding-bottom: 8px; font-family: Georgia, serif;">
+                        Riepilogo ordine
+                    </h2>
+
+                    <p>
+                        <strong>Telefono:</strong> ${orderData.telephone_number}<br>
+                        <strong>Indirizzo:</strong> ${orderData.customer_address}, ${orderData.customer_city} - ${orderData.customer_postal_code}<br>
+                        <strong>Note:</strong> ${orderData.notes}
+                    </p>
 
                     <h2 style="color: #5a3e1b; font-size: 18px; margin: 24px 0 12px; border-bottom: 2px solid #c9a86a; padding-bottom: 8px; font-family: Georgia, serif;">
                         Riepilogo artefatti
