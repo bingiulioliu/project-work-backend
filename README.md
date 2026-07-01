@@ -1,6 +1,6 @@
 # JSON's Quest — Backend
 
-> API REST per **JSON's Quest**, l'e-commerce a tema fantasy/RPG. Espone i dati di prodotti, categorie e ordini, gestisce l'invio email e integra un assistente AI conversazionale. Consumato dal frontend React ([repo separata](../project-work-frontend)).
+> API REST per **JSON's Quest**, l'e-commerce a tema fantasy/RPG. Espone i dati di prodotti, categorie e ordini, gestisce l'invio email e integra un assistente AI conversazionale. Consumato dal frontend React ([repo separata](https://github.com/bingiulioliu/project-work-backend)).
 
 ---
 
