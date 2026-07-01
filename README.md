@@ -79,8 +79,8 @@ Elenco completo degli endpoint in [`docs/API.md`](docs/API.md).
 
 | Nome  | GitHub ||
 |---|---|---|
-| Bin Giulio Liu | [@bingiulioliu](https://github.com/bingiulioliu) |
-| Alessia Smeraglia | [@alessiaasmeraglia](https://github.com/alessiaasmeraglia) |
 | Alessia di Ruggero | [@rAel-Ael](https://github.com/rAel-Ael) |
+| Alessia Smeraglia | [@alessiaasmeraglia](https://github.com/alessiaasmeraglia) |
+| Bin Giulio Liu | [@bingiulioliu](https://github.com/bingiulioliu) |
 | Giovanni Ghinet | [@Giovanni-Ghinet](https://github.com/Giovanni-Ghinet) |
 | Marco Fiordi | [@MarcoFiordi](https://github.com/MarcoFiordi) |
